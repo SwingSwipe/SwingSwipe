@@ -1,0 +1,72 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  html, body, #root {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+  }
+
+  body {
+    font-family: 'Inter', sans-serif;
+    background-color: #f5f5f2;
+    color: #1a1a1a;
+    -webkit-font-smoothing: antialiased;
+    overscroll-behavior: none;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-[#1D9E75] text-white font-semibold py-3 px-6 rounded-[8px] w-full text-center transition-opacity active:opacity-80;
+  }
+
+  .btn-secondary {
+    @apply bg-white text-[#1D9E75] font-semibold py-3 px-6 rounded-[8px] w-full text-center border border-[#1D9E75] transition-opacity active:opacity-80;
+  }
+
+  .card {
+    @apply bg-white rounded-[12px] border border-gray-100 shadow-sm;
+  }
+
+  .pill {
+    @apply text-xs font-medium px-3 py-1 rounded-[8px];
+  }
+
+  .pill-active {
+    @apply bg-[#1D9E75] text-white;
+  }
+
+  .pill-inactive {
+    @apply bg-gray-100 text-gray-600;
+  }
+
+  .input-field {
+    @apply w-full border border-gray-200 rounded-[8px] px-4 py-3 text-sm focus:outline-none focus:border-[#1D9E75] bg-white;
+  }
+
+  .tab-content {
+    @apply flex-1 overflow-y-auto pb-20 pt-4 px-4;
+  }
+}
+
+/* Swipe animations */
+.swipe-card {
+  touch-action: none;
+  user-select: none;
+}
+
+/* Scrollbar hide */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
