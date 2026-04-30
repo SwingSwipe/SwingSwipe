@@ -50,8 +50,9 @@ function EditProfileModal({ profile, onClose, onSaved }) {
 
   return (
     <Modal>
-    <div className="fixed inset-0 bg-black/60 z-50 flex items-end">
-      <div className="bg-white w-full rounded-t-[24px] p-6 max-h-[90vh] overflow-y-auto">
+    <>
+    <div className="fixed inset-0 bg-black/60 z-[60]" onClick={onClose} />
+    <div className="fixed bottom-0 left-0 right-0 z-[60] bg-white rounded-t-[24px] p-6 max-h-[90vh] overflow-y-auto">
         <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-4" />
         <h2 className="text-lg font-black mb-5">Edit Profile</h2>
         <div className="space-y-4">
@@ -116,7 +117,7 @@ function EditProfileModal({ profile, onClose, onSaved }) {
           <button onClick={save} className="btn-primary" disabled={saving}>{saving ? 'Saving…' : 'Save profile'}</button>
         </div>
       </div>
-    </div>
+    </>
     </Modal>
   )
 }

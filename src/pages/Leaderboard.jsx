@@ -251,8 +251,9 @@ export default function Leaderboard({ user, profile }) {
       {/* Create crew modal */}
       {showCreateCrew && (
         <Modal>
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-end">
-          <div className="bg-white w-full rounded-t-[20px] p-6">
+        <>
+        <div className="fixed inset-0 bg-black/50 z-[60]" onClick={() => setShowCreateCrew(false)} />
+        <div className="fixed bottom-0 left-0 right-0 z-[60] bg-white rounded-t-[20px] p-6">
             <div className="flex items-center justify-between mb-5">
               <h2 className="text-lg font-bold">Create a Crew</h2>
               <button onClick={() => setShowCreateCrew(false)} className="text-gray-400 text-xl">×</button>
@@ -268,7 +269,7 @@ export default function Leaderboard({ user, profile }) {
               {creating ? 'Creating…' : 'Create Crew'}
             </button>
           </div>
-        </div>
+        </>
         </Modal>
       )}
     </div>

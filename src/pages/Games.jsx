@@ -148,8 +148,9 @@ function RatePlayersModal({ listing, currentUserId, players, onClose, onDone }) 
 
   return (
     <Modal>
-    <div className="fixed inset-0 bg-black/60 z-50 flex items-end">
-      <div className="bg-white w-full rounded-t-[24px] p-6 max-h-[90vh] overflow-y-auto">
+    <>
+    <div className="fixed inset-0 bg-black/60 z-[60]" />
+    <div className="fixed bottom-0 left-0 right-0 z-[60] bg-white rounded-t-[24px] p-6 max-h-[90vh] overflow-y-auto">
         <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-4" />
         <h2 className="text-lg font-black mb-1">Rate your playing partners</h2>
         <p className="text-sm text-gray-400 mb-5">Helps other golfers find great playing partners.</p>
@@ -206,7 +207,7 @@ function RatePlayersModal({ listing, currentUserId, players, onClose, onDone }) 
         </button>
         <button onClick={onClose} className="w-full text-center text-sm text-gray-400 mt-3">Skip for now</button>
       </div>
-    </div>
+    </>
     </Modal>
   )
 }
@@ -240,8 +241,9 @@ function PostGameModal({ userId, onClose, onPosted }) {
 
   return (
     <Modal>
-    <div className="fixed inset-0 bg-black/60 z-50 flex items-end">
-      <div className="bg-white w-full rounded-t-[24px] max-h-[92vh] flex flex-col">
+    <>
+    <div className="fixed inset-0 bg-black/60 z-[60]" onClick={onClose} />
+    <div className="fixed bottom-0 left-0 right-0 z-[60] bg-white rounded-t-[24px] max-h-[92vh] flex flex-col">
         <div className="overflow-y-auto flex-1 px-5 pt-4 pb-2">
           <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-3" />
           <h2 className="text-base font-black mb-3">Post a game ⛳</h2>
@@ -296,15 +298,14 @@ function PostGameModal({ userId, onClose, onPosted }) {
               onChange={e => set('notes', e.target.value)} />
           </div>
         </div>
+        {/* Sticky post button */}
+        <div className="p-4 border-t border-gray-100 bg-white shrink-0">
+          <button onClick={submit} className="btn-primary" disabled={saving || !form.course_name || !form.date || !form.tee_time}>
+            {saving ? 'Posting…' : 'Post game ⛳'}
+          </button>
+        </div>
       </div>
-
-      {/* Sticky post button */}
-      <div className="p-4 border-t border-gray-100 bg-white">
-        <button onClick={submit} className="btn-primary" disabled={saving || !form.course_name || !form.date || !form.tee_time}>
-          {saving ? 'Posting…' : 'Post game ⛳'}
-        </button>
-      </div>
-    </div>
+    </>
     </Modal>
   )
 }

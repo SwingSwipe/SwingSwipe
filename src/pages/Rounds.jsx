@@ -45,8 +45,9 @@ function LogRoundModal({ userId, friends, onClose, onLogged }) {
 
   return (
     <Modal>
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-end">
-      <div className="bg-white w-full rounded-t-[20px] p-6 max-h-[90vh] overflow-y-auto">
+    <>
+    <div className="fixed inset-0 bg-black/50 z-[60]" onClick={onClose} />
+    <div className="fixed bottom-0 left-0 right-0 z-[60] bg-white rounded-t-[20px] p-6 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-lg font-bold">Log Round</h2>
           <button onClick={onClose} className="text-gray-400 text-xl">×</button>
@@ -141,7 +142,7 @@ function LogRoundModal({ userId, friends, onClose, onLogged }) {
           </button>
         </div>
       </div>
-    </div>
+    </>
     </Modal>
   )
 }

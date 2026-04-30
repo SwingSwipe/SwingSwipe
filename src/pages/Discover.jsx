@@ -153,8 +153,9 @@ function GameCard({ game, currentUserId, onRequest, requestStatus }) {
 function PlayerModal({ player, currentUserId, onClose, onMessage }) {
   return (
     <Modal>
-    <div className="fixed inset-0 bg-black/60 z-50 flex items-end" onClick={onClose}>
-      <div className="bg-white w-full rounded-t-[24px] p-6 max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+    <>
+    <div className="fixed inset-0 bg-black/60 z-[60]" onClick={onClose} />
+    <div className="fixed bottom-0 left-0 right-0 z-[60] bg-white rounded-t-[24px] p-6 max-h-[85vh] overflow-y-auto">
         <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-5" />
 
         <div className="flex items-start gap-4 mb-5">
@@ -216,7 +217,7 @@ function PlayerModal({ player, currentUserId, onClose, onMessage }) {
           </button>
         )}
       </div>
-    </div>
+    </>
     </Modal>
   )
 }
