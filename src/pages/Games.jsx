@@ -235,61 +235,60 @@ function PostGameModal({ userId, onClose, onPosted }) {
 
   return (
     <div className="fixed inset-0 bg-black/60 z-50 flex items-end">
-      <div className="bg-white w-full rounded-t-[24px] max-h-[90vh] flex flex-col">
-        <div className="overflow-y-auto flex-1 p-6 pb-2">
-        <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-4" />
-        <h2 className="text-lg font-black mb-1">Post a game</h2>
-        <p className="text-sm text-gray-400 mb-5">You booked the tee time — now find the right players.</p>
+      <div className="bg-white w-full rounded-t-[24px] max-h-[92vh] flex flex-col">
+        <div className="overflow-y-auto flex-1 px-5 pt-4 pb-2">
+          <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-3" />
+          <h2 className="text-base font-black mb-3">Post a game ⛳</h2>
 
-        <div className="space-y-4">
-          <input className="input-field" placeholder="Course name" value={form.course_name} onChange={e => set('course_name', e.target.value)} />
-          <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-3">
+            <input className="input-field" placeholder="Course name" value={form.course_name} onChange={e => set('course_name', e.target.value)} />
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="text-xs text-gray-500 mb-1 block">Date</label>
+                <input className="input-field" type="date" value={form.date} onChange={e => set('date', e.target.value)} />
+              </div>
+              <div>
+                <label className="text-xs text-gray-500 mb-1 block">Tee time</label>
+                <input className="input-field" type="time" value={form.tee_time} onChange={e => set('tee_time', e.target.value)} />
+              </div>
+            </div>
+
             <div>
-              <label className="text-xs text-gray-500 mb-1 block">Date</label>
-              <input className="input-field" type="date" value={form.date} onChange={e => set('date', e.target.value)} />
+              <label className="text-xs text-gray-500 mb-1.5 block">Open spots needed</label>
+              <div className="flex gap-2">
+                {[1, 2, 3].map(n => (
+                  <button key={n} onClick={() => set('spots_total', n + 1)}
+                    className={`pill flex-1 py-1.5 ${form.spots_total === n + 1 ? 'pill-active' : 'pill-inactive'}`}>
+                    {n} {n === 1 ? 'player' : 'players'}
+                  </button>
+                ))}
+              </div>
             </div>
+
             <div>
-              <label className="text-xs text-gray-500 mb-1 block">Tee time</label>
-              <input className="input-field" type="time" value={form.tee_time} onChange={e => set('tee_time', e.target.value)} />
+              <label className="text-xs text-gray-500 mb-1.5 block">Vibe</label>
+              <div className="flex flex-wrap gap-1.5">
+                {Object.entries(VIBE_LABELS).map(([val, label]) => (
+                  <button key={val} onClick={() => set('vibe', val)}
+                    className={`pill py-1 ${form.vibe === val ? 'pill-active' : 'pill-inactive'}`}>{label}</button>
+                ))}
+              </div>
             </div>
-          </div>
 
-          <div>
-            <label className="text-xs text-gray-500 mb-2 block">Open spots needed</label>
-            <div className="flex gap-2">
-              {[1, 2, 3].map(n => (
-                <button key={n} onClick={() => set('spots_total', n + 1)}
-                  className={`pill flex-1 py-2 ${form.spots_total === n + 1 ? 'pill-active' : 'pill-inactive'}`}>
-                  {n} {n === 1 ? 'player' : 'players'}
-                </button>
-              ))}
+            <div>
+              <label className="text-xs text-gray-500 mb-1.5 block">Skill range</label>
+              <div className="flex flex-wrap gap-1.5">
+                {[['all_welcome', 'All welcome'], ['sub_100', 'Sub-100'], ['sub_90', 'Sub-90'], ['sub_80', 'Sub-80'], ['scratch', 'Scratch']].map(([val, label]) => (
+                  <button key={val} onClick={() => set('skill_range', val)}
+                    className={`pill py-1 ${form.skill_range === val ? 'pill-active' : 'pill-inactive'}`}>{label}</button>
+                ))}
+              </div>
             </div>
-          </div>
 
-          <div>
-            <label className="text-xs text-gray-500 mb-2 block">Vibe</label>
-            <div className="flex flex-wrap gap-2">
-              {Object.entries(VIBE_LABELS).map(([val, label]) => (
-                <button key={val} onClick={() => set('vibe', val)}
-                  className={`pill ${form.vibe === val ? 'pill-active' : 'pill-inactive'}`}>{label}</button>
-              ))}
-            </div>
+            <textarea className="input-field resize-none" rows={2}
+              placeholder="Notes (optional) — e.g. 'Walking round, bring cash for skins'" value={form.notes}
+              onChange={e => set('notes', e.target.value)} />
           </div>
-
-          <div>
-            <label className="text-xs text-gray-500 mb-2 block">Skill range</label>
-            <div className="flex flex-wrap gap-2">
-              {[['all_welcome', 'All welcome'], ['sub_100', 'Sub-100'], ['sub_90', 'Sub-90'], ['sub_80', 'Sub-80'], ['scratch', 'Scratch']].map(([val, label]) => (
-                <button key={val} onClick={() => set('skill_range', val)}
-                  className={`pill ${form.skill_range === val ? 'pill-active' : 'pill-inactive'}`}>{label}</button>
-              ))}
-            </div>
-          </div>
-
-          <textarea className="input-field resize-none" rows={2}
-            placeholder="Notes — e.g. 'Walking round, bring cash for skins'" value={form.notes}
-            onChange={e => set('notes', e.target.value)} />
-        </div>
         </div>
       </div>
 
