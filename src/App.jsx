@@ -8,18 +8,18 @@ import Login from './pages/Login'
 import Signup from './pages/Signup'
 import Onboarding from './pages/Onboarding'
 import ResetPassword from './pages/ResetPassword'
-import Feed from './pages/Feed'
+import Discover from './pages/Discover'
+import Games from './pages/Games'
 import Crew from './pages/Crew'
-import Leaderboard from './pages/Leaderboard'
 import Rounds from './pages/Rounds'
-import Explore from './pages/Explore'
+import Profile from './pages/Profile'
 
 export default function App() {
   const { user, loading: authLoading } = useAuth()
   const { profile, loading: profileLoading } = useProfile(user?.id)
   const [authView, setAuthView] = useState('login')
-  const [activeTab, setActiveTab] = useState('feed')
-  const [crewNotif, setCrewNotif] = useState(false)
+  const [activeTab, setActiveTab] = useState('discover')
+  const [gameNotif, setGameNotif] = useState(0)
   const [isPasswordRecovery, setIsPasswordRecovery] = useState(false)
 
   useEffect(() => {
@@ -29,22 +29,19 @@ export default function App() {
     return () => subscription.unsubscribe()
   }, [])
 
+  // Listen for new game requests on my listings
   useEffect(() => {
     if (!user) return
     const channel = supabase
-      .channel('crew-listing-notif')
+      .channel('game-request-notif')
       .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'round_listings',
+        event: 'INSERT', schema: 'public', table: 'round_requests',
       }, async (payload) => {
-        const { data: isFriend } = await supabase
-          .from('friends')
-          .select('id')
-          .eq('user_id', user.id)
-          .eq('friend_id', payload.new.host_id)
-          .maybeSingle()
-        if (isFriend) setCrewNotif(true)
+        const { data: listing } = await supabase
+          .from('round_listings').select('host_id').eq('id', payload.new.listing_id).single()
+        if (listing?.host_id === user.id) {
+          setGameNotif(n => n + 1)
+        }
       })
       .subscribe()
     return () => supabase.removeChannel(channel)
@@ -62,11 +59,6 @@ export default function App() {
         </div>
         <h1 className="text-2xl font-black mb-2">SwingSwipe</h1>
         <p className="text-gray-500 text-sm mb-6">Add your Supabase credentials to <code className="bg-gray-100 px-1.5 py-0.5 rounded text-xs">.env</code> to get started.</p>
-        <div className="card p-4 text-left w-full max-w-sm text-xs font-mono text-gray-600 space-y-1">
-          <p>VITE_SUPABASE_URL=https://xxx.supabase.co</p>
-          <p>VITE_SUPABASE_ANON_KEY=eyJ...</p>
-        </div>
-        <p className="text-xs text-gray-400 mt-4">Then restart the dev server.</p>
       </div>
     )
   }
@@ -88,9 +80,7 @@ export default function App() {
     )
   }
 
-  if (isPasswordRecovery) {
-    return <ResetPassword onDone={() => setIsPasswordRecovery(false)} />
-  }
+  if (isPasswordRecovery) return <ResetPassword onDone={() => setIsPasswordRecovery(false)} />
 
   if (!user) {
     return authView === 'login'
@@ -104,12 +94,12 @@ export default function App() {
 
   const renderTab = () => {
     switch (activeTab) {
-      case 'feed':        return <Feed user={user} />
-      case 'crew':        return <Crew user={user} onNotifClear={() => setCrewNotif(false)} />
-      case 'leaderboard': return <Leaderboard user={user} profile={profile} />
-      case 'rounds':      return <Rounds user={user} />
-      case 'explore':     return <Explore />
-      default:            return <Feed user={user} />
+      case 'discover': return <Discover user={user} />
+      case 'games':    return <Games user={user} />
+      case 'crew':     return <Crew user={user} />
+      case 'rounds':   return <Rounds user={user} />
+      case 'profile':  return <Profile user={user} />
+      default:         return <Discover user={user} />
     }
   }
 
@@ -118,7 +108,11 @@ export default function App() {
       <div className="flex-1 overflow-hidden relative">
         {renderTab()}
       </div>
-      <BottomNav activeTab={activeTab} onTabChange={setActiveTab} crewNotif={crewNotif} />
+      <BottomNav
+        activeTab={activeTab}
+        onTabChange={(tab) => { setActiveTab(tab); if (tab === 'games') setGameNotif(0) }}
+        gameNotif={gameNotif}
+      />
     </div>
   )
 }
