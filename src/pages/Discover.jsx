@@ -119,18 +119,43 @@ function GameCard({ game, currentUserId, userHandicap, onRequest, onCancel, onHo
 
         <button
           onClick={() => !isOwn && onHostTap?.(game.host_id)}
-          className={`flex items-center gap-2 mb-3 w-full text-left ${!isOwn ? 'active:opacity-70' : ''}`}
+          className={`flex items-start gap-2.5 mb-3 w-full text-left ${!isOwn ? 'active:opacity-70' : ''}`}
         >
-          <Avatar name={game.profiles?.name} url={game.profiles?.avatar_url} size={6} />
-          <div className="flex-1">
-            <p className="text-xs font-medium">{game.profiles?.name?.split(' ')[0]} {game.profiles?.name?.split(' ')[1]?.[0]}.</p>
-            <p className="text-xs text-gray-400">Host {!isOwn && '· tap to view'}</p>
+          <Avatar name={game.profiles?.name} url={game.profiles?.avatar_url} size={8} />
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2">
+              <p className="text-xs font-semibold">{game.profiles?.name?.split(' ')[0]} {game.profiles?.name?.split(' ')[1]?.[0]}.</p>
+              {game.profiles?.rating?.count >= 3 && (
+                <span className="text-yellow-400 text-[10px]">{'★'.repeat(Math.round(game.profiles.rating.avg))}</span>
+              )}
+              {game.vibe && (
+                <span className="pill bg-gray-100 text-gray-600 text-[10px] px-2 py-0.5 ml-auto shrink-0">
+                  {VIBE_LABELS[game.vibe] || game.vibe}
+                </span>
+              )}
+            </div>
+            <div className="flex flex-wrap gap-1.5 mt-1">
+              {game.profiles?.pace && (
+                <span className="text-[10px] font-semibold text-blue-500 bg-blue-50 px-2 py-0.5 rounded-full">
+                  {PACE_LABELS[game.profiles.pace] || game.profiles.pace}
+                </span>
+              )}
+              {game.profiles?.cart_or_walk && game.profiles.cart_or_walk !== 'either' && (
+                <span className="text-[10px] font-semibold text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
+                  {game.profiles.cart_or_walk === 'cart' ? '🛺 Cart' : '🚶 Walking'}
+                </span>
+              )}
+              {game.profiles?.cart_or_walk === 'either' && (
+                <span className="text-[10px] font-semibold text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">🛺/🚶 Either</span>
+              )}
+              {game.profiles?.handicap_range && (
+                <span className="text-[10px] font-semibold text-[#1D9E75] bg-[#1D9E75]/10 px-2 py-0.5 rounded-full">
+                  {HANDICAP_LABELS[game.profiles.handicap_range] || game.profiles.handicap_range}
+                </span>
+              )}
+              {!isOwn && <span className="text-[10px] text-gray-400 ml-auto">tap to view →</span>}
+            </div>
           </div>
-          {game.vibe && (
-            <span className="pill bg-gray-100 text-gray-600 text-xs">
-              {VIBE_LABELS[game.vibe] || game.vibe}
-            </span>
-          )}
         </button>
 
         {/* Accepted players */}
@@ -310,7 +335,7 @@ export default function Discover({ user, userProfile }) {
     setLoading(true)
     const { data } = await supabase
       .from('round_listings')
-      .select('*, profiles(name, avatar_url)')
+      .select('*, profiles(id, name, avatar_url, pace, cart_or_walk, handicap_range)')
       .eq('is_active', true)
       .gte('date', new Date().toISOString().split('T')[0])
       .order('date', { ascending: true })
@@ -318,10 +343,12 @@ export default function Discover({ user, userProfile }) {
 
     if (data?.length) {
       const ids = data.map(g => g.id)
+      const hostIds = [...new Set(data.map(g => g.host_id))]
 
-      const [{ data: reqs }, { data: accepted }] = await Promise.all([
+      const [{ data: reqs }, { data: accepted }, { data: ratings }] = await Promise.all([
         supabase.from('round_requests').select('listing_id, status').eq('requester_id', user.id).in('listing_id', ids),
         supabase.from('round_requests').select('listing_id, profiles(id, name, avatar_url)').in('listing_id', ids).eq('status', 'accepted'),
+        supabase.from('player_ratings').select('rated_id, stars').in('rated_id', hostIds),
       ])
 
       const statusMap = {}
@@ -335,6 +362,25 @@ export default function Discover({ user, userProfile }) {
         playersMap[r.listing_id].push(r.profiles)
       })
       setGamePlayers(playersMap)
+
+      // Build host rating map
+      const ratingMap = {}
+      ratings?.forEach(r => {
+        if (!ratingMap[r.rated_id]) ratingMap[r.rated_id] = { total: 0, count: 0 }
+        ratingMap[r.rated_id].total += r.stars
+        ratingMap[r.rated_id].count += 1
+      })
+      const hostRatingMap = {}
+      Object.entries(ratingMap).forEach(([id, { total, count }]) => {
+        hostRatingMap[id] = { avg: Math.round((total / count) * 10) / 10, count }
+      })
+
+      // Embed rating into each game's profiles object
+      data.forEach(g => {
+        if (g.profiles && hostRatingMap[g.host_id]) {
+          g.profiles.rating = hostRatingMap[g.host_id]
+        }
+      })
     }
 
     setGames(data || [])
