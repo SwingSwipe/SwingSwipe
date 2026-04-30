@@ -209,7 +209,7 @@ function RatePlayersModal({ listing, currentUserId, players, onClose, onDone }) 
 function PostGameModal({ userId, onClose, onPosted }) {
   const [form, setForm] = useState({
     course_name: '', date: '', tee_time: '',
-    spots_total: 4, vibe: 'casual', skill_range: 'all_welcome', notes: '',
+    spots_total: 3, vibe: 'casual', skill_range: 'all_welcome', notes: '',
   })
   const [saving, setSaving] = useState(false)
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
@@ -254,11 +254,13 @@ function PostGameModal({ userId, onClose, onPosted }) {
           </div>
 
           <div>
-            <label className="text-xs text-gray-500 mb-2 block">Open spots (including you)</label>
+            <label className="text-xs text-gray-500 mb-2 block">Open spots needed</label>
             <div className="flex gap-2">
-              {[2, 3, 4].map(n => (
-                <button key={n} onClick={() => set('spots_total', n)}
-                  className={`pill flex-1 py-2 ${form.spots_total === n ? 'pill-active' : 'pill-inactive'}`}>{n} players</button>
+              {[1, 2, 3].map(n => (
+                <button key={n} onClick={() => set('spots_total', n + 1)}
+                  className={`pill flex-1 py-2 ${form.spots_total === n + 1 ? 'pill-active' : 'pill-inactive'}`}>
+                  {n} {n === 1 ? 'player' : 'players'}
+                </button>
               ))}
             </div>
           </div>
