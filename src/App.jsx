@@ -7,6 +7,7 @@ import BottomNav from './components/BottomNav'
 import Login from './pages/Login'
 import Signup from './pages/Signup'
 import Onboarding from './pages/Onboarding'
+import ResetPassword from './pages/ResetPassword'
 import Groups from './pages/Groups'
 import Crew from './pages/Crew'
 import Leaderboard from './pages/Leaderboard'
@@ -19,6 +20,14 @@ export default function App() {
   const [authView, setAuthView] = useState('login')
   const [activeTab, setActiveTab] = useState('groups')
   const [crewNotif, setCrewNotif] = useState(false)
+  const [isPasswordRecovery, setIsPasswordRecovery] = useState(false)
+
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'PASSWORD_RECOVERY') setIsPasswordRecovery(true)
+    })
+    return () => subscription.unsubscribe()
+  }, [])
 
   useEffect(() => {
     if (!user) return
@@ -73,6 +82,10 @@ export default function App() {
         </div>
       </div>
     )
+  }
+
+  if (isPasswordRecovery) {
+    return <ResetPassword onDone={() => setIsPasswordRecovery(false)} />
   }
 
   if (!user) {
