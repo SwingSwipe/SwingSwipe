@@ -244,6 +244,21 @@ export default function Crew({ user, onFriendRequestsChange }) {
     if (!error) setRequestedListings(s => new Set([...s, listing.id]))
   }
 
+  const handleCancelJoinRequest = async (listing) => {
+    const { error } = await supabase
+      .from('round_requests')
+      .delete()
+      .eq('listing_id', listing.id)
+      .eq('requester_id', user.id)
+    if (!error) {
+      setRequestedListings(s => {
+        const next = new Set(s)
+        next.delete(listing.id)
+        return next
+      })
+    }
+  }
+
   const sendRequest = async (toId) => {
     await supabase.from('friend_requests').insert({ from_id: user.id, to_id: toId, status: 'pending' })
     setSentRequestIds(s => new Set([...s, toId]))
@@ -403,6 +418,7 @@ export default function Crew({ user, onFriendRequestsChange }) {
                     listing={l}
                     currentUserId={user.id}
                     onJoin={handleJoinRequest}
+                    onCancel={handleCancelJoinRequest}
                     requested={requestedListings.has(l.id)}
                   />
                 ))}

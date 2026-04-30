@@ -375,8 +375,10 @@ export default function Games({ user }) {
     fetchGames()
   }
 
-  const handleCloseGame = async (gameId) => {
-    await supabase.from('round_listings').update({ is_active: false }).eq('id', gameId)
+  const handleDeleteGame = async (gameId) => {
+    if (!window.confirm('Delete this game? This cannot be undone.')) return
+    await supabase.from('round_requests').delete().eq('listing_id', gameId)
+    await supabase.from('round_listings').delete().eq('id', gameId)
     fetchGames()
   }
 
@@ -492,11 +494,11 @@ export default function Games({ user }) {
                           <button onClick={() => openRateModal(game)} className="flex-1 py-2 bg-[#1D9E75]/10 rounded-[8px] text-sm font-semibold text-[#1D9E75]">
                             ⭐ Rate players
                           </button>
-                        ) : game.is_active ? (
-                          <button onClick={() => handleCloseGame(game.id)} className="flex-1 py-2 bg-gray-100 rounded-[8px] text-sm font-semibold text-gray-500">
-                            Close game
+                        ) : (
+                          <button onClick={() => handleDeleteGame(game.id)} className="flex-1 py-2 bg-red-50 rounded-[8px] text-sm font-semibold text-red-500">
+                            Delete game
                           </button>
-                        ) : null}
+                        )}
                       </div>
                     </div>
                   </div>

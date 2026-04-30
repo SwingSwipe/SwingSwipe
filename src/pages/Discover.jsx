@@ -82,7 +82,7 @@ function PlayerCard({ player, onTap }) {
   )
 }
 
-function GameCard({ game, currentUserId, onRequest, requestStatus }) {
+function GameCard({ game, currentUserId, onRequest, onCancel, requestStatus }) {
   const spotsLeft = game.spots_total - game.spots_filled
   const isOwn = game.host_id === currentUserId
   const status = requestStatus[game.id]
@@ -128,19 +128,30 @@ function GameCard({ game, currentUserId, onRequest, requestStatus }) {
         )}
 
         {!isOwn && spotsLeft > 0 && (
-          <button
-            onClick={() => onRequest(game)}
-            disabled={!!status}
-            className={`w-full py-2.5 rounded-[10px] text-sm font-bold transition-all ${
-              status === 'pending' ? 'bg-gray-100 text-gray-500' :
-              status === 'accepted' ? 'bg-green-100 text-green-700' :
-              'bg-[#1D9E75] text-white active:opacity-80'
-            }`}
-          >
-            {status === 'pending' ? '✓ Request sent' :
-             status === 'accepted' ? '✓ You\'re in!' :
-             'Request to join →'}
-          </button>
+          status === 'pending' ? (
+            <div className="flex gap-2">
+              <div className="flex-1 py-2.5 rounded-[10px] text-sm font-bold bg-gray-100 text-gray-500 text-center">
+                ✓ Request sent
+              </div>
+              <button
+                onClick={() => onCancel(game)}
+                className="px-4 py-2.5 rounded-[10px] text-sm font-bold bg-red-50 text-red-500 active:opacity-80"
+              >
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => status !== 'accepted' && onRequest(game)}
+              disabled={status === 'accepted'}
+              className={`w-full py-2.5 rounded-[10px] text-sm font-bold transition-all ${
+                status === 'accepted' ? 'bg-green-100 text-green-700' :
+                'bg-[#1D9E75] text-white active:opacity-80'
+              }`}
+            >
+              {status === 'accepted' ? '✓ You\'re in!' : 'Request to join →'}
+            </button>
+          )
         )}
         {isOwn && (
           <p className="text-xs text-[#1D9E75] font-semibold text-center">Your game</p>
@@ -308,6 +319,21 @@ export default function Discover({ user }) {
     if (!error) setRequestStatus(s => ({ ...s, [game.id]: 'pending' }))
   }
 
+  const handleCancelRequest = async (game) => {
+    const { error } = await supabase
+      .from('round_requests')
+      .delete()
+      .eq('listing_id', game.id)
+      .eq('requester_id', user.id)
+    if (!error) {
+      setRequestStatus(s => {
+        const next = { ...s }
+        delete next[game.id]
+        return next
+      })
+    }
+  }
+
   const handleInvite = (player) => {
     setSelectedPlayer(null)
     // Future: open a game invite modal
@@ -392,6 +418,7 @@ export default function Discover({ user }) {
                   game={g}
                   currentUserId={user.id}
                   onRequest={handleRequest}
+                  onCancel={handleCancelRequest}
                   requestStatus={requestStatus}
                 />
               ))}

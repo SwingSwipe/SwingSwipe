@@ -37,7 +37,7 @@ function formatTime(timeStr) {
   return `${h12}:${m} ${ampm}`
 }
 
-export default function RoundCard({ listing, onJoin, currentUserId, onChat, requested }) {
+export default function RoundCard({ listing, onJoin, onCancel, currentUserId, onChat, requested }) {
   const spotsLeft = listing.spots_total - listing.spots_filled
   const isHost = listing.host_id === currentUserId
   const isFull = spotsLeft === 0
@@ -85,17 +85,28 @@ export default function RoundCard({ listing, onJoin, currentUserId, onChat, requ
           <button onClick={() => onChat?.(listing)} className="btn-secondary py-2 text-sm flex-1">
             View chat
           </button>
+        ) : requested ? (
+          <>
+            <div className="flex-1 py-2 text-sm rounded-[8px] font-semibold bg-green-50 text-[#1D9E75] text-center">
+              ✓ Requested
+            </div>
+            <button
+              onClick={() => onCancel?.(listing)}
+              className="px-4 py-2 text-sm rounded-[8px] font-semibold bg-red-50 text-red-500 active:opacity-80"
+            >
+              Cancel
+            </button>
+          </>
         ) : (
           <button
-            onClick={() => !requested && !isFull && onJoin?.(listing)}
-            disabled={isFull || requested}
+            onClick={() => !isFull && onJoin?.(listing)}
+            disabled={isFull}
             className={`py-2 text-sm flex-1 rounded-[8px] font-semibold transition-opacity ${
               isFull ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-              : requested ? 'bg-green-50 text-[#1D9E75] cursor-default'
               : 'bg-[#1D9E75] text-white active:opacity-80'
             }`}
           >
-            {isFull ? 'Full' : requested ? '✓ Requested' : 'Request to join'}
+            {isFull ? 'Full' : 'Request to join'}
           </button>
         )}
       </div>
