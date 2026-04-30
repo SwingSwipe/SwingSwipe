@@ -208,19 +208,19 @@ export default function Rounds({ user }) {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="bg-white px-4 pt-12 pb-3 border-b border-gray-100">
+      <div className="page-header">
         <div className="flex items-center justify-between mb-3">
           <div>
-            <h1 className="text-xl font-bold">Rounds</h1>
-            <p className="text-sm text-gray-400">{CURRENT_SEASON} season</p>
+            <h1 className="text-white text-xl font-black">Rounds 📋</h1>
+            <p className="text-white/70 text-xs">{CURRENT_SEASON} season</p>
           </div>
-          <button onClick={() => setShowLog(true)} className="text-sm bg-[#1D9E75] text-white px-4 py-2 rounded-[8px] font-semibold">
+          <button onClick={() => setShowLog(true)} className="text-sm bg-white text-[#1D9E75] px-4 py-2 rounded-[10px] font-bold shadow-sm">
             + Log round
           </button>
         </div>
         <div className="flex gap-2">
-          <button onClick={() => setActiveTab('rounds')} className={`pill flex-1 ${activeTab === 'rounds' ? 'pill-active' : 'pill-inactive'}`}>Rounds</button>
-          <button onClick={() => setActiveTab('bets')} className={`pill flex-1 ${activeTab === 'bets' ? 'pill-active' : 'pill-inactive'}`}>Friendly bets</button>
+          <button onClick={() => setActiveTab('rounds')} className={`pill flex-1 py-1.5 ${activeTab === 'rounds' ? 'bg-white text-[#1D9E75] font-bold' : 'bg-white/20 text-white'}`}>Rounds</button>
+          <button onClick={() => setActiveTab('bets')} className={`pill flex-1 py-1.5 ${activeTab === 'bets' ? 'bg-white text-[#1D9E75] font-bold' : 'bg-white/20 text-white'}`}>Friendly bets</button>
         </div>
       </div>
 

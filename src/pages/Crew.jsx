@@ -213,22 +213,22 @@ export default function Crew({ user }) {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="bg-white px-4 pt-12 pb-4 border-b border-gray-100">
+      <div className="page-header">
         <div className="flex items-center justify-between mb-3">
-          <h1 className="text-xl font-bold">Crew</h1>
-          <button onClick={() => setShowJoin(true)} className="text-sm bg-[#1D9E75] text-white px-3 py-1.5 rounded-[8px] font-semibold">
+          <h1 className="text-white text-xl font-black">Crew 🤝</h1>
+          <button onClick={() => setShowJoin(true)} className="text-sm bg-white text-[#1D9E75] px-3 py-1.5 rounded-[10px] font-bold shadow-sm">
             Join crew
           </button>
         </div>
         <div className="flex gap-2">
           <input
-            className="input-field flex-1"
+            className="w-full border-0 rounded-[10px] px-4 py-2.5 text-sm focus:outline-none bg-white/90"
             placeholder="Search golfers by name…"
             value={search}
             onChange={e => setSearch(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && handleSearch()}
           />
-          <button onClick={handleSearch} className="px-4 py-3 bg-[#1D9E75] text-white rounded-[8px] text-sm font-semibold">Find</button>
+          <button onClick={handleSearch} className="px-4 py-2.5 bg-white text-[#1D9E75] rounded-[10px] text-sm font-bold shadow-sm">Find</button>
         </div>
       </div>
 

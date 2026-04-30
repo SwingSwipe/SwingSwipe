@@ -134,12 +134,12 @@ export default function Leaderboard({ user, profile }) {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="bg-white px-4 pt-12 pb-3 border-b border-gray-100">
+      <div className="page-header">
         <div className="flex items-center justify-between mb-3">
-          <h1 className="text-xl font-bold">Leaderboard</h1>
+          <h1 className="text-white text-xl font-black">Standings 🏆</h1>
           <button
             onClick={() => setShowCreateCrew(true)}
-            className="text-sm bg-[#1D9E75] text-white px-3 py-1.5 rounded-[8px] font-semibold"
+            className="text-sm bg-white text-[#1D9E75] px-3 py-1.5 rounded-[10px] font-bold shadow-sm"
           >
             + New crew
           </button>
@@ -152,7 +152,7 @@ export default function Leaderboard({ user, profile }) {
               <button
                 key={crew.id}
                 onClick={() => setActiveCrew(crew)}
-                className={`pill whitespace-nowrap ${activeCrew?.id === crew.id ? 'pill-active' : 'pill-inactive'}`}
+                className={`pill whitespace-nowrap py-1.5 ${activeCrew?.id === crew.id ? 'bg-white text-[#1D9E75] font-bold' : 'bg-white/20 text-white'}`}
               >
                 {crew.name}
               </button>
@@ -165,13 +165,13 @@ export default function Leaderboard({ user, profile }) {
           <div className="flex gap-2">
             <button
               onClick={() => setActiveTab('weekly')}
-              className={`pill flex-1 ${activeTab === 'weekly' ? 'pill-active' : 'pill-inactive'}`}
+              className={`pill flex-1 py-1.5 ${activeTab === 'weekly' ? 'bg-white text-[#1D9E75] font-bold' : 'bg-white/20 text-white'}`}
             >
               This week
             </button>
             <button
               onClick={() => setActiveTab('season')}
-              className={`pill flex-1 ${activeTab === 'season' ? 'pill-active' : 'pill-inactive'}`}
+              className={`pill flex-1 py-1.5 ${activeTab === 'season' ? 'bg-white text-[#1D9E75] font-bold' : 'bg-white/20 text-white'}`}
             >
               Season
             </button>
