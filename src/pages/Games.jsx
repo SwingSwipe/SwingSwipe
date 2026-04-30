@@ -235,7 +235,8 @@ function PostGameModal({ userId, onClose, onPosted }) {
 
   return (
     <div className="fixed inset-0 bg-black/60 z-50 flex items-end">
-      <div className="bg-white w-full rounded-t-[24px] p-6 max-h-[90vh] overflow-y-auto">
+      <div className="bg-white w-full rounded-t-[24px] max-h-[90vh] flex flex-col">
+        <div className="overflow-y-auto flex-1 p-6 pb-2">
         <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-4" />
         <h2 className="text-lg font-black mb-1">Post a game</h2>
         <p className="text-sm text-gray-400 mb-5">You booked the tee time — now find the right players.</p>
@@ -288,11 +289,15 @@ function PostGameModal({ userId, onClose, onPosted }) {
           <textarea className="input-field resize-none" rows={2}
             placeholder="Notes — e.g. 'Walking round, bring cash for skins'" value={form.notes}
             onChange={e => set('notes', e.target.value)} />
-
-          <button onClick={submit} className="btn-primary" disabled={saving || !form.course_name || !form.date || !form.tee_time}>
-            {saving ? 'Posting…' : 'Post game ⛳'}
-          </button>
         </div>
+        </div>
+      </div>
+
+      {/* Sticky post button */}
+      <div className="p-4 border-t border-gray-100 bg-white">
+        <button onClick={submit} className="btn-primary" disabled={saving || !form.course_name || !form.date || !form.tee_time}>
+          {saving ? 'Posting…' : 'Post game ⛳'}
+        </button>
       </div>
     </div>
   )
