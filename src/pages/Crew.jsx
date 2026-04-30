@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../supabase'
 import Avatar from '../components/Avatar'
+import Modal from '../components/Modal'
 import RoundCard from '../components/RoundCard'
 
 function CrewChat({ crew, currentUserId, onClose }) {
@@ -53,6 +54,7 @@ function CrewChat({ crew, currentUserId, onClose }) {
   }
 
   return (
+    <Modal>
     <div className="fixed inset-0 bg-brand-bg z-50 flex flex-col">
       <div className="bg-[#1a1a1a] text-white px-4 py-3 flex items-center gap-3">
         <button onClick={onClose} className="text-gray-400 text-lg">←</button>
@@ -97,6 +99,7 @@ function CrewChat({ crew, currentUserId, onClose }) {
         <button onClick={send} className="w-10 h-10 bg-[#1D9E75] rounded-[8px] flex items-center justify-center text-white">↑</button>
       </div>
     </div>
+    </Modal>
   )
 }
 
@@ -129,6 +132,7 @@ function JoinCrewModal({ userId, onClose, onJoined }) {
   }
 
   return (
+    <Modal>
     <div className="fixed inset-0 bg-black/50 z-50 flex items-end">
       <div className="bg-white w-full rounded-t-[20px] p-6">
         <div className="flex items-center justify-between mb-5">
@@ -148,6 +152,7 @@ function JoinCrewModal({ userId, onClose, onJoined }) {
         </button>
       </div>
     </div>
+    </Modal>
   )
 }
 

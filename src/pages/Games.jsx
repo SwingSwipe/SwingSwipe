@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../supabase'
 import Avatar from '../components/Avatar'
+import Modal from '../components/Modal'
 
 const VIBE_LABELS = {
   casual: '😊 Casual',
@@ -57,6 +58,7 @@ function GameChat({ listing, currentUserId, onClose }) {
   }
 
   return (
+    <Modal>
     <div className="fixed inset-0 bg-[#f0f2f0] z-50 flex flex-col">
       <div className="bg-[#1D9E75] text-white px-4 pt-12 pb-4 flex items-center gap-3">
         <button onClick={onClose} className="text-white/80 text-xl">←</button>
@@ -97,6 +99,7 @@ function GameChat({ listing, currentUserId, onClose }) {
         <button onClick={send} className="w-10 h-10 bg-[#1D9E75] rounded-[10px] flex items-center justify-center text-white font-bold">↑</button>
       </div>
     </div>
+    </Modal>
   )
 }
 
@@ -144,6 +147,7 @@ function RatePlayersModal({ listing, currentUserId, players, onClose, onDone }) 
   const othersToRate = players.filter(p => p.id !== currentUserId)
 
   return (
+    <Modal>
     <div className="fixed inset-0 bg-black/60 z-50 flex items-end">
       <div className="bg-white w-full rounded-t-[24px] p-6 max-h-[90vh] overflow-y-auto">
         <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-4" />
@@ -203,6 +207,7 @@ function RatePlayersModal({ listing, currentUserId, players, onClose, onDone }) 
         <button onClick={onClose} className="w-full text-center text-sm text-gray-400 mt-3">Skip for now</button>
       </div>
     </div>
+    </Modal>
   )
 }
 
@@ -234,6 +239,7 @@ function PostGameModal({ userId, onClose, onPosted }) {
   }
 
   return (
+    <Modal>
     <div className="fixed inset-0 bg-black/60 z-50 flex items-end">
       <div className="bg-white w-full rounded-t-[24px] max-h-[92vh] flex flex-col">
         <div className="overflow-y-auto flex-1 px-5 pt-4 pb-2">
@@ -299,6 +305,7 @@ function PostGameModal({ userId, onClose, onPosted }) {
         </button>
       </div>
     </div>
+    </Modal>
   )
 }
 

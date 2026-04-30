@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../supabase'
 import Avatar from '../components/Avatar'
+import Modal from '../components/Modal'
 
 function calculateHandicapAdjusted(score, handicap) {
   const par = 72
@@ -249,6 +250,7 @@ export default function Leaderboard({ user, profile }) {
 
       {/* Create crew modal */}
       {showCreateCrew && (
+        <Modal>
         <div className="fixed inset-0 bg-black/50 z-50 flex items-end">
           <div className="bg-white w-full rounded-t-[20px] p-6">
             <div className="flex items-center justify-between mb-5">
@@ -267,6 +269,7 @@ export default function Leaderboard({ user, profile }) {
             </button>
           </div>
         </div>
+        </Modal>
       )}
     </div>
   )

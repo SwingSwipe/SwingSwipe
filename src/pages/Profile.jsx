@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../supabase'
 import Avatar from '../components/Avatar'
+import Modal from '../components/Modal'
 
 const HANDICAP_LABELS = { beginner: 'Beginner', '90s': '90s shooter', '80s': '80s shooter', '70s': '70s shooter', scratch: 'Scratch' }
 const PACE_LABELS = { fast: '⚡ Fast', moderate: '🚶 Moderate', relaxed: '😌 Relaxed' }
@@ -48,6 +49,7 @@ function EditProfileModal({ profile, onClose, onSaved }) {
   }
 
   return (
+    <Modal>
     <div className="fixed inset-0 bg-black/60 z-50 flex items-end">
       <div className="bg-white w-full rounded-t-[24px] p-6 max-h-[90vh] overflow-y-auto">
         <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-4" />
@@ -115,6 +117,7 @@ function EditProfileModal({ profile, onClose, onSaved }) {
         </div>
       </div>
     </div>
+    </Modal>
   )
 }
 

@@ -1,3 +1,4 @@
+import Modal from '../components/Modal'
 import { useState, useEffect } from 'react'
 import { supabase } from '../supabase'
 
@@ -43,6 +44,7 @@ function LogRoundModal({ userId, friends, onClose, onLogged }) {
   }
 
   return (
+    <Modal>
     <div className="fixed inset-0 bg-black/50 z-50 flex items-end">
       <div className="bg-white w-full rounded-t-[20px] p-6 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-5">
@@ -140,6 +142,7 @@ function LogRoundModal({ userId, friends, onClose, onLogged }) {
         </div>
       </div>
     </div>
+    </Modal>
   )
 }
 
