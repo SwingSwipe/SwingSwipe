@@ -164,6 +164,7 @@ export default function Crew({ user, onFriendRequestsChange }) {
   const [incomingRequests, setIncomingRequests] = useState([])
   const [sentRequestIds, setSentRequestIds] = useState(new Set())
   const [friendIds, setFriendIds] = useState(new Set())
+  const [requestedListings, setRequestedListings] = useState(new Set())
   const [loading, setLoading] = useState(true)
   const [activeChat, setActiveChat] = useState(null)
   const [showJoin, setShowJoin] = useState(false)
@@ -197,6 +198,15 @@ export default function Crew({ user, onFriendRequestsChange }) {
         .gte('date', new Date().toISOString().split('T')[0])
         .order('date', { ascending: true })
       setListings(friendListings || [])
+
+      // Track which friend listings I've already requested
+      if (friendListings?.length) {
+        const { data: myReqs } = await supabase
+          .from('round_requests').select('listing_id')
+          .eq('requester_id', user.id)
+          .in('listing_id', friendListings.map(l => l.id))
+        setRequestedListings(new Set(myReqs?.map(r => r.listing_id) || []))
+      }
     } else {
       setFriends([])
       setListings([])
@@ -218,6 +228,15 @@ export default function Crew({ user, onFriendRequestsChange }) {
       .neq('id', user.id)
       .limit(10)
     setSearchResults(data || [])
+  }
+
+  const handleJoinRequest = async (listing) => {
+    const { error } = await supabase.from('round_requests').insert({
+      listing_id: listing.id,
+      requester_id: user.id,
+      status: 'pending',
+    })
+    if (!error) setRequestedListings(s => new Set([...s, listing.id]))
   }
 
   const sendRequest = async (toId) => {
@@ -360,7 +379,15 @@ export default function Crew({ user, onFriendRequestsChange }) {
             {listings.length > 0 && (
               <div className="mb-5">
                 <h2 className="section-label mb-2">Playing this week</h2>
-                {listings.map(l => <RoundCard key={l.id} listing={l} currentUserId={user.id} />)}
+                {listings.map(l => (
+                  <RoundCard
+                    key={l.id}
+                    listing={l}
+                    currentUserId={user.id}
+                    onJoin={handleJoinRequest}
+                    requested={requestedListings.has(l.id)}
+                  />
+                ))}
               </div>
             )}
 

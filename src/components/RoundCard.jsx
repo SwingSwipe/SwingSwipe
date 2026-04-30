@@ -37,7 +37,7 @@ function formatTime(timeStr) {
   return `${h12}:${m} ${ampm}`
 }
 
-export default function RoundCard({ listing, onJoin, currentUserId, onChat }) {
+export default function RoundCard({ listing, onJoin, currentUserId, onChat, requested }) {
   const spotsLeft = listing.spots_total - listing.spots_filled
   const isHost = listing.host_id === currentUserId
   const isFull = spotsLeft === 0
@@ -87,15 +87,15 @@ export default function RoundCard({ listing, onJoin, currentUserId, onChat }) {
           </button>
         ) : (
           <button
-            onClick={() => onJoin?.(listing)}
-            disabled={isFull}
+            onClick={() => !requested && !isFull && onJoin?.(listing)}
+            disabled={isFull || requested}
             className={`py-2 text-sm flex-1 rounded-[8px] font-semibold transition-opacity ${
-              isFull
-                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                : 'bg-[#1D9E75] text-white active:opacity-80'
+              isFull ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+              : requested ? 'bg-green-50 text-[#1D9E75] cursor-default'
+              : 'bg-[#1D9E75] text-white active:opacity-80'
             }`}
           >
-            {isFull ? 'Full' : 'Request to join'}
+            {isFull ? 'Full' : requested ? '✓ Requested' : 'Request to join'}
           </button>
         )}
       </div>
