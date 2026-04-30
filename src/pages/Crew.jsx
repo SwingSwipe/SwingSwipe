@@ -3,6 +3,7 @@ import { supabase } from '../supabase'
 import Avatar from '../components/Avatar'
 import Modal from '../components/Modal'
 import RoundCard from '../components/RoundCard'
+import PublicProfileModal from '../components/PublicProfileModal'
 
 function CrewChat({ crew, currentUserId, onClose }) {
   const [messages, setMessages] = useState([])
@@ -165,6 +166,7 @@ export default function Crew({ user, onFriendRequestsChange }) {
   const [sentRequestIds, setSentRequestIds] = useState(new Set())
   const [friendIds, setFriendIds] = useState(new Set())
   const [requestedListings, setRequestedListings] = useState(new Set())
+  const [viewingProfile, setViewingProfile] = useState(null)
   const [loading, setLoading] = useState(true)
   const [activeChat, setActiveChat] = useState(null)
   const [showJoin, setShowJoin] = useState(false)
@@ -271,8 +273,19 @@ export default function Crew({ user, onFriendRequestsChange }) {
   return (
     <div className="flex flex-col h-full">
       <div className="page-header">
+        {/* People decoration */}
+        <svg className="absolute right-3 top-5 opacity-10" width="80" height="72" viewBox="0 0 80 72" fill="none">
+          <circle cx="28" cy="18" r="12" fill="white"/>
+          <path d="M4 60 Q4 40 28 40 Q52 40 52 60" fill="white"/>
+          <circle cx="56" cy="20" r="10" fill="white"/>
+          <path d="M36 62 Q40 44 56 44 Q72 44 76 62" fill="white"/>
+        </svg>
+        <p className="text-white/60 text-xs font-semibold uppercase tracking-widest mb-1">Your people</p>
         <div className="flex items-center justify-between mb-3">
-          <h1 className="text-white text-xl font-black">Crew 🤝</h1>
+          <div>
+            <h1 className="text-white text-2xl font-black mb-0.5">Crew 🤝</h1>
+            <p className="text-white/70 text-xs">Friends, groups and who's playing</p>
+          </div>
           <button onClick={() => setShowJoin(true)} className="text-sm bg-white text-[#1D9E75] px-3 py-1.5 rounded-[10px] font-bold shadow-sm">
             Join crew
           </button>
@@ -335,11 +348,13 @@ export default function Crew({ user, onFriendRequestsChange }) {
                     const p = req.profiles
                     return (
                       <div key={req.id} className="card p-3 flex items-center gap-3">
-                        <Avatar name={p?.name} url={p?.avatar_url} size={10} />
-                        <div className="flex-1 min-w-0">
+                        <button onClick={() => setViewingProfile(req.from_id)}>
+                          <Avatar name={p?.name} url={p?.avatar_url} size={10} />
+                        </button>
+                        <button className="flex-1 min-w-0 text-left" onClick={() => setViewingProfile(req.from_id)}>
                           <p className="font-semibold text-sm">{p?.name}</p>
                           <p className="text-xs text-gray-400 truncate">{p?.home_course || 'No home course'}</p>
-                        </div>
+                        </button>
                         <div className="flex gap-2 shrink-0">
                           <button onClick={() => acceptRequest(req)}
                             className="text-xs bg-[#1D9E75] text-white px-3 py-1.5 rounded-[8px] font-semibold">
@@ -406,12 +421,12 @@ export default function Crew({ user, onFriendRequestsChange }) {
               ) : (
                 <div className="flex gap-4 overflow-x-auto no-scrollbar pb-2">
                   {friends.map(f => (
-                    <div key={f.id} className="flex flex-col items-center gap-1.5 min-w-[60px]">
+                    <button key={f.id} onClick={() => setViewingProfile(f.id)} className="flex flex-col items-center gap-1.5 min-w-[60px] active:opacity-70">
                       <Avatar name={f.name} url={f.avatar_url} size={12} />
                       <p className="text-xs text-center text-gray-600 leading-tight max-w-[60px] truncate">
                         {f.name?.split(' ')[0]}
                       </p>
-                    </div>
+                    </button>
                   ))}
                 </div>
               )}
@@ -422,6 +437,7 @@ export default function Crew({ user, onFriendRequestsChange }) {
 
       {activeChat && <CrewChat crew={activeChat} currentUserId={user.id} onClose={() => setActiveChat(null)} />}
       {showJoin && <JoinCrewModal userId={user.id} onClose={() => setShowJoin(false)} onJoined={fetchAll} />}
+      {viewingProfile && <PublicProfileModal userId={viewingProfile} currentUserId={user.id} onClose={() => setViewingProfile(null)} />}
     </div>
   )
 }

@@ -61,7 +61,7 @@
 
   /* Page header with green top */
   .page-header {
-    @apply bg-[#1D9E75] px-4 pt-12 pb-4;
+    @apply bg-[#1D9E75] px-4 pt-12 pb-5 relative overflow-hidden;
   }
 
   .page-header h1 {

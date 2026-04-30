@@ -316,7 +316,15 @@ export default function Discover({ user }) {
   return (
     <div className="flex flex-col h-full">
       <div className="page-header">
-        <h1 className="text-white text-xl font-black mb-3">Discover 🔍</h1>
+        {/* Golf flag decoration */}
+        <svg className="absolute right-4 top-6 opacity-10" width="72" height="72" viewBox="0 0 72 72" fill="none">
+          <line x1="24" y1="8" x2="24" y2="64" stroke="white" strokeWidth="3" strokeLinecap="round"/>
+          <path d="M24 8 L58 20 L24 32 Z" fill="white"/>
+          <ellipse cx="24" cy="64" rx="14" ry="4" fill="white"/>
+        </svg>
+        <p className="text-white/60 text-xs font-semibold uppercase tracking-widest mb-1">SwingSwipe</p>
+        <h1 className="text-white text-2xl font-black mb-0.5">Find your round ⛳</h1>
+        <p className="text-white/70 text-xs mb-3">Browse players and open games near you</p>
         <div className="flex gap-2">
           <button
             onClick={() => setMode('players')}

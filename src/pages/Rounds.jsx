@@ -214,10 +214,18 @@ export default function Rounds({ user }) {
   return (
     <div className="flex flex-col h-full">
       <div className="page-header">
+        {/* Scorecard decoration */}
+        <svg className="absolute right-3 top-5 opacity-10" width="72" height="72" viewBox="0 0 72 72" fill="none">
+          <rect x="8" y="8" width="56" height="56" rx="8" fill="white"/>
+          <line x1="20" y1="26" x2="52" y2="26" stroke="#1D9E75" strokeWidth="2.5" strokeLinecap="round"/>
+          <line x1="20" y1="36" x2="52" y2="36" stroke="#1D9E75" strokeWidth="2.5" strokeLinecap="round"/>
+          <line x1="20" y1="46" x2="40" y2="46" stroke="#1D9E75" strokeWidth="2.5" strokeLinecap="round"/>
+        </svg>
+        <p className="text-white/60 text-xs font-semibold uppercase tracking-widest mb-1">{CURRENT_SEASON} season</p>
         <div className="flex items-center justify-between mb-3">
           <div>
-            <h1 className="text-white text-xl font-black">Rounds 📋</h1>
-            <p className="text-white/70 text-xs">{CURRENT_SEASON} season</p>
+            <h1 className="text-white text-2xl font-black mb-0.5">Rounds 🏌️</h1>
+            <p className="text-white/70 text-xs">Your scores and friendly bets</p>
           </div>
           <button onClick={() => setShowLog(true)} className="text-sm bg-white text-[#1D9E75] px-4 py-2 rounded-[10px] font-bold shadow-sm">
             + Log round

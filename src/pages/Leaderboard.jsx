@@ -136,8 +136,20 @@ export default function Leaderboard({ user, profile }) {
   return (
     <div className="flex flex-col h-full">
       <div className="page-header">
+        {/* Trophy decoration */}
+        <svg className="absolute right-3 top-5 opacity-10" width="72" height="72" viewBox="0 0 72 72" fill="none">
+          <path d="M20 8 H52 V36 C52 50 36 58 36 58 C36 58 20 50 20 36 Z" fill="white"/>
+          <path d="M20 20 H8 C8 20 8 40 20 40" stroke="white" strokeWidth="3" fill="none" strokeLinecap="round"/>
+          <path d="M52 20 H64 C64 20 64 40 52 40" stroke="white" strokeWidth="3" fill="none" strokeLinecap="round"/>
+          <line x1="36" y1="58" x2="36" y2="66" stroke="white" strokeWidth="3" strokeLinecap="round"/>
+          <line x1="24" y1="66" x2="48" y2="66" stroke="white" strokeWidth="3" strokeLinecap="round"/>
+        </svg>
+        <p className="text-white/60 text-xs font-semibold uppercase tracking-widest mb-1">Crew competition</p>
         <div className="flex items-center justify-between mb-3">
-          <h1 className="text-white text-xl font-black">Standings 🏆</h1>
+          <div>
+            <h1 className="text-white text-2xl font-black mb-0.5">Standings 🏆</h1>
+            <p className="text-white/70 text-xs">Handicap-adjusted crew rankings</p>
+          </div>
           <button
             onClick={() => setShowCreateCrew(true)}
             className="text-sm bg-white text-[#1D9E75] px-3 py-1.5 rounded-[10px] font-bold shadow-sm"

@@ -404,7 +404,19 @@ export default function Games({ user }) {
   return (
     <div className="flex flex-col h-full">
       <div className="page-header">
-        <h1 className="text-white text-xl font-black mb-3">Games ⛳</h1>
+        {/* Golf ball decoration */}
+        <svg className="absolute right-3 top-5 opacity-10" width="80" height="80" viewBox="0 0 80 80" fill="none">
+          <circle cx="40" cy="40" r="36" fill="white"/>
+          <circle cx="30" cy="30" r="3" fill="#1D9E75"/>
+          <circle cx="42" cy="26" r="2.5" fill="#1D9E75"/>
+          <circle cx="52" cy="34" r="3" fill="#1D9E75"/>
+          <circle cx="50" cy="46" r="2.5" fill="#1D9E75"/>
+          <circle cx="38" cy="52" r="3" fill="#1D9E75"/>
+          <circle cx="28" cy="44" r="2.5" fill="#1D9E75"/>
+        </svg>
+        <p className="text-white/60 text-xs font-semibold uppercase tracking-widest mb-1">Tee times</p>
+        <h1 className="text-white text-2xl font-black mb-0.5">Games 🏌️</h1>
+        <p className="text-white/70 text-xs mb-3">Post a game or manage your tee times</p>
         <div className="flex gap-2">
           <button onClick={() => setTab('mine')}
             className={`pill flex-1 py-1.5 font-bold relative ${tab === 'mine' ? 'bg-white text-[#1D9E75]' : 'bg-white/20 text-white'}`}>
