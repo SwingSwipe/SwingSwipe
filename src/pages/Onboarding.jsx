@@ -1,19 +1,35 @@
 import { useState } from 'react'
 import { supabase } from '../supabase'
 
-const VIBE_OPTIONS = ['bread_game', 'casual', 'competitive', 'social', 'practice_focused']
-const VIBE_LABELS = {
-  bread_game: '🍞 Bread game',
-  casual: '😊 Casual',
-  competitive: '🏆 Competitive',
-  social: '🤝 Social',
-  practice_focused: '🎯 Practice focused',
-}
+const HANDICAP_OPTIONS = [
+  { value: 'beginner', label: 'Beginner', sub: 'Just starting out' },
+  { value: '90s', label: '90s shooter', sub: 'Scores 90–99' },
+  { value: '80s', label: '80s shooter', sub: 'Scores 80–89' },
+  { value: '70s', label: '70s shooter', sub: 'Scores 70–79' },
+  { value: 'scratch', label: 'Scratch', sub: 'Plays to 0 or better' },
+]
+
+const VIBE_OPTIONS = [
+  { value: 'bread_game', label: '🍞 Bread game' },
+  { value: 'casual', label: '😊 Casual' },
+  { value: 'competitive', label: '🏆 Competitive' },
+  { value: 'social', label: '🤝 Social' },
+  { value: 'practice_focused', label: '🎯 Practice focused' },
+]
+
 const AVAIL_OPTIONS = [
-  { value: 'weekend_mornings', label: 'Weekend mornings' },
-  { value: 'weekday_mornings', label: 'Weekday mornings' },
-  { value: 'weekend_afternoons', label: 'Weekend afternoons' },
+  { value: 'weekend_mornings', label: 'Weekend AM' },
+  { value: 'weekday_mornings', label: 'Weekday AM' },
+  { value: 'weekend_afternoons', label: 'Weekend PM' },
   { value: 'flexible', label: 'Flexible' },
+]
+
+const STEPS = [
+  { emoji: '👋', title: "What's your name?" },
+  { emoji: '📍', title: 'Where do you play?' },
+  { emoji: '⛳', title: 'Your game' },
+  { emoji: '⏱️', title: 'How do you like to play?' },
+  { emoji: '✌️', title: 'Your golf vibe' },
 ]
 
 export default function Onboarding({ user, onComplete }) {
@@ -21,7 +37,6 @@ export default function Onboarding({ user, onComplete }) {
   const [saving, setSaving] = useState(false)
   const [data, setData] = useState({
     name: '',
-    avatar_url: '',
     location: '',
     home_course: '',
     handicap_range: '',
@@ -34,14 +49,16 @@ export default function Onboarding({ user, onComplete }) {
   })
 
   const set = (key, val) => setData(d => ({ ...d, [key]: val }))
+  const toggleArray = (key, val) => setData(d => ({
+    ...d,
+    [key]: d[key].includes(val) ? d[key].filter(v => v !== val) : [...d[key], val],
+  }))
 
-  const toggleArray = (key, val) => {
-    setData(d => ({
-      ...d,
-      [key]: d[key].includes(val)
-        ? d[key].filter(v => v !== val)
-        : [...d[key], val],
-    }))
+  const canProceed = () => {
+    if (step === 1) return data.name.trim().length > 0
+    if (step === 3) return data.handicap_range !== ''
+    if (step === 4) return data.pace !== ''
+    return true
   }
 
   const next = () => setStep(s => s + 1)
@@ -51,8 +68,7 @@ export default function Onboarding({ user, onComplete }) {
     setSaving(true)
     const { error } = await supabase.from('profiles').upsert({
       id: user.id,
-      name: data.name,
-      avatar_url: data.avatar_url || null,
+      name: data.name.trim(),
       location: data.location,
       home_course: data.home_course,
       handicap_range: data.handicap_range,
@@ -67,185 +83,198 @@ export default function Onboarding({ user, onComplete }) {
     if (!error) onComplete()
   }
 
-  const progress = (step / 5) * 100
+  const currentStep = STEPS[step - 1]
 
   return (
-    <div className="min-h-screen bg-brand-bg flex flex-col">
+    <div className="min-h-screen bg-[#f0f2f0] flex flex-col">
       {/* Progress bar */}
       <div className="h-1 bg-gray-200">
         <div
-          className="h-1 bg-[#1D9E75] transition-all duration-300"
-          style={{ width: `${progress}%` }}
+          className="h-1 bg-[#1D9E75] transition-all duration-500"
+          style={{ width: `${(step / STEPS.length) * 100}%` }}
         />
       </div>
 
-      <div className="flex-1 flex flex-col px-6 pt-8 pb-6 max-w-sm mx-auto w-full">
-        <p className="text-xs text-gray-400 mb-6">Step {step} of 5</p>
+      <div className="flex-1 flex flex-col px-6 pt-10 pb-6 max-w-sm mx-auto w-full">
+        <p className="text-xs text-gray-400 mb-2 font-medium tracking-wide uppercase">Step {step} of {STEPS.length}</p>
+        <div className="mb-8">
+          <span className="text-4xl mb-3 block">{currentStep.emoji}</span>
+          <h2 className="text-2xl font-black text-gray-900">{currentStep.title}</h2>
+        </div>
 
+        {/* Step 1 — Name */}
         {step === 1 && (
-          <div className="flex-1 flex flex-col">
-            <h2 className="text-2xl font-bold mb-1">What's your name?</h2>
-            <p className="text-gray-500 text-sm mb-8">How you'll appear to other golfers.</p>
+          <div className="flex-1 flex flex-col gap-3">
             <input
-              className="input-field mb-4"
-              placeholder="Full name"
+              className="input-field text-base"
+              placeholder="First and last name"
               value={data.name}
               onChange={e => set('name', e.target.value)}
+              autoFocus
             />
-            <input
-              className="input-field"
-              placeholder="Profile photo URL (optional)"
-              value={data.avatar_url}
-              onChange={e => set('avatar_url', e.target.value)}
-            />
+            <p className="text-xs text-gray-400">This is how other golfers will see you. You can't change it later (for now).</p>
           </div>
         )}
 
+        {/* Step 2 — Location */}
         {step === 2 && (
-          <div className="flex-1 flex flex-col">
-            <h2 className="text-2xl font-bold mb-1">Where do you play?</h2>
-            <p className="text-gray-500 text-sm mb-8">Helps us find rounds near you.</p>
+          <div className="flex-1 flex flex-col gap-3">
             <input
-              className="input-field mb-4"
-              placeholder="Location (e.g. Bethpage, NY)"
+              className="input-field"
+              placeholder="City, State (e.g. Austin, TX)"
               value={data.location}
               onChange={e => set('location', e.target.value)}
             />
             <input
               className="input-field"
-              placeholder="Home course (e.g. Bethpage Red)"
+              placeholder="Home course (e.g. Bethpage Black)"
               value={data.home_course}
               onChange={e => set('home_course', e.target.value)}
             />
+            <p className="text-xs text-gray-400">Used to find rounds near you. You can skip this and add it later.</p>
           </div>
         )}
 
+        {/* Step 3 — Handicap */}
         {step === 3 && (
           <div className="flex-1 flex flex-col">
-            <h2 className="text-2xl font-bold mb-1">Your game</h2>
-            <p className="text-gray-500 text-sm mb-6">Helps match you with compatible partners.</p>
-            <p className="text-sm font-medium mb-2">Handicap range</p>
-            <div className="flex flex-wrap gap-2 mb-6">
-              {['beginner', '90s', '80s', '70s', 'scratch'].map(h => (
+            <p className="text-sm font-semibold text-gray-600 mb-3">Pick your skill level <span className="text-red-400">*</span></p>
+            <div className="space-y-2 mb-5">
+              {HANDICAP_OPTIONS.map(h => (
                 <button
-                  key={h}
-                  onClick={() => set('handicap_range', h)}
-                  className={`pill ${data.handicap_range === h ? 'pill-active' : 'pill-inactive'}`}
+                  key={h.value}
+                  onClick={() => set('handicap_range', h.value)}
+                  className={`w-full text-left px-4 py-3 rounded-[12px] border-2 transition-all ${
+                    data.handicap_range === h.value
+                      ? 'border-[#1D9E75] bg-[#1D9E75]/5'
+                      : 'border-gray-200 bg-white'
+                  }`}
                 >
-                  {h === 'beginner' ? 'Beginner' : h === 'scratch' ? 'Scratch' : `${h}`}
+                  <p className={`font-bold text-sm ${data.handicap_range === h.value ? 'text-[#1D9E75]' : 'text-gray-800'}`}>{h.label}</p>
+                  <p className="text-xs text-gray-400 mt-0.5">{h.sub}</p>
                 </button>
               ))}
             </div>
             <input
               className="input-field"
               type="number"
-              placeholder="Avg score (e.g. 88)"
+              placeholder="Avg score (optional, e.g. 88)"
               value={data.avg_score}
               onChange={e => set('avg_score', e.target.value)}
             />
           </div>
         )}
 
+        {/* Step 4 — Pace + Cart */}
         {step === 4 && (
-          <div className="flex-1 flex flex-col">
-            <h2 className="text-2xl font-bold mb-1">When do you play?</h2>
-            <p className="text-gray-500 text-sm mb-6">Select all that apply.</p>
-
-            <p className="text-sm font-medium mb-2">Availability</p>
-            <div className="flex flex-wrap gap-2 mb-6">
-              {AVAIL_OPTIONS.map(({ value, label }) => (
-                <button
-                  key={value}
-                  onClick={() => toggleArray('availability', value)}
-                  className={`pill ${data.availability.includes(value) ? 'pill-active' : 'pill-inactive'}`}
-                >
-                  {label}
-                </button>
-              ))}
+          <div className="flex-1 flex flex-col gap-5">
+            <div>
+              <p className="text-sm font-semibold text-gray-600 mb-2">Pace of play <span className="text-red-400">*</span></p>
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  { value: 'fast', label: '⚡ Fast', sub: 'Under 4 hrs' },
+                  { value: 'moderate', label: '🚶 Moderate', sub: '4–4.5 hrs' },
+                  { value: 'relaxed', label: '😌 Relaxed', sub: 'No rush' },
+                ].map(p => (
+                  <button
+                    key={p.value}
+                    onClick={() => set('pace', p.value)}
+                    className={`py-3 px-2 rounded-[12px] border-2 text-center transition-all ${
+                      data.pace === p.value ? 'border-[#1D9E75] bg-[#1D9E75]/5' : 'border-gray-200 bg-white'
+                    }`}
+                  >
+                    <p className="text-base mb-0.5">{p.label.split(' ')[0]}</p>
+                    <p className={`text-xs font-semibold ${data.pace === p.value ? 'text-[#1D9E75]' : 'text-gray-700'}`}>{p.label.split(' ')[1]}</p>
+                    <p className="text-[10px] text-gray-400 mt-0.5">{p.sub}</p>
+                  </button>
+                ))}
+              </div>
             </div>
 
-            <p className="text-sm font-medium mb-2">Pace of play</p>
-            <div className="flex gap-2 mb-6">
-              {['fast', 'moderate', 'relaxed'].map(p => (
-                <button
-                  key={p}
-                  onClick={() => set('pace', p)}
-                  className={`pill capitalize ${data.pace === p ? 'pill-active' : 'pill-inactive'}`}
-                >
-                  {p}
-                </button>
-              ))}
+            <div>
+              <p className="text-sm font-semibold text-gray-600 mb-2">Cart or walk?</p>
+              <div className="flex gap-2">
+                {[['cart', '🛺 Cart'], ['walking', '🚶 Walk'], ['either', '🤷 Either']].map(([v, l]) => (
+                  <button key={v} onClick={() => set('cart_or_walk', v)}
+                    className={`pill flex-1 py-2 ${data.cart_or_walk === v ? 'pill-active' : 'pill-inactive'}`}>{l}</button>
+                ))}
+              </div>
             </div>
 
-            <p className="text-sm font-medium mb-2">Cart or walk?</p>
-            <div className="flex gap-2">
-              {['cart', 'walking', 'either'].map(c => (
-                <button
-                  key={c}
-                  onClick={() => set('cart_or_walk', c)}
-                  className={`pill capitalize ${data.cart_or_walk === c ? 'pill-active' : 'pill-inactive'}`}
-                >
-                  {c}
-                </button>
-              ))}
+            <div>
+              <p className="text-sm font-semibold text-gray-600 mb-2">Availability</p>
+              <div className="flex flex-wrap gap-2">
+                {AVAIL_OPTIONS.map(({ value, label }) => (
+                  <button key={value} onClick={() => toggleArray('availability', value)}
+                    className={`pill ${data.availability.includes(value) ? 'pill-active' : 'pill-inactive'}`}>
+                    {label}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         )}
 
+        {/* Step 5 — Vibe */}
         {step === 5 && (
-          <div className="flex-1 flex flex-col">
-            <h2 className="text-2xl font-bold mb-1">Your golf vibe</h2>
-            <p className="text-gray-500 text-sm mb-6">Pick up to 3 that describe you.</p>
-
-            <div className="flex flex-wrap gap-2 mb-6">
-              {VIBE_OPTIONS.map(v => (
-                <button
-                  key={v}
-                  onClick={() => {
-                    if (data.vibe_tags.includes(v)) {
-                      toggleArray('vibe_tags', v)
-                    } else if (data.vibe_tags.length < 3) {
-                      toggleArray('vibe_tags', v)
-                    }
-                  }}
-                  className={`pill ${data.vibe_tags.includes(v) ? 'pill-active' : 'pill-inactive'}`}
-                >
-                  {VIBE_LABELS[v]}
-                </button>
-              ))}
+          <div className="flex-1 flex flex-col gap-5">
+            <div>
+              <p className="text-sm font-semibold text-gray-600 mb-2">Pick up to 3 that describe you</p>
+              <div className="flex flex-wrap gap-2">
+                {VIBE_OPTIONS.map(v => (
+                  <button
+                    key={v.value}
+                    onClick={() => {
+                      if (data.vibe_tags.includes(v.value)) toggleArray('vibe_tags', v.value)
+                      else if (data.vibe_tags.length < 3) toggleArray('vibe_tags', v.value)
+                    }}
+                    className={`pill ${data.vibe_tags.includes(v.value) ? 'pill-active' : 'pill-inactive'}`}
+                  >
+                    {v.label}
+                  </button>
+                ))}
+              </div>
             </div>
 
-            <p className="text-sm font-medium mb-2">Complete this sentence:</p>
-            <p className="text-sm text-gray-500 mb-2">Best course I've played:</p>
-            <input
-              className="input-field"
-              placeholder="e.g. Bethpage Black"
-              value={data.bio_prompt}
-              onChange={e => set('bio_prompt', e.target.value)}
-            />
+            <div>
+              <p className="text-sm font-semibold text-gray-600 mb-1">Best course you've played?</p>
+              <p className="text-xs text-gray-400 mb-2">Shows on your profile — gives people something to talk about.</p>
+              <input
+                className="input-field"
+                placeholder="e.g. Pebble Beach"
+                value={data.bio_prompt}
+                onChange={e => set('bio_prompt', e.target.value)}
+              />
+            </div>
           </div>
         )}
 
         {/* Navigation */}
         <div className="flex gap-3 mt-auto pt-6">
           {step > 1 && (
-            <button onClick={back} className="btn-secondary flex-1">Back</button>
+            <button onClick={back} className="flex-1 py-3 rounded-[10px] border border-gray-200 bg-white text-gray-600 font-semibold text-sm">
+              Back
+            </button>
           )}
-          {step < 5 ? (
+          {step < STEPS.length ? (
             <button
               onClick={next}
-              className="btn-primary flex-1"
-              disabled={step === 1 && !data.name.trim()}
+              disabled={!canProceed()}
+              className={`flex-1 py-3 rounded-[10px] font-bold text-sm transition-all ${
+                canProceed()
+                  ? 'bg-[#1D9E75] text-white active:opacity-80'
+                  : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+              }`}
             >
-              Continue
+              Continue →
             </button>
           ) : (
             <button
               onClick={handleFinish}
-              className="btn-primary flex-1"
-              disabled={saving}
+              disabled={saving || !canProceed()}
+              className="flex-1 py-3 rounded-[10px] bg-[#1D9E75] text-white font-bold text-sm active:opacity-80 disabled:opacity-50"
             >
-              {saving ? 'Saving…' : "Let's tee it up ⛳"}
+              {saving ? 'Setting up…' : "Let's tee it up ⛳"}
             </button>
           )}
         </div>
