@@ -115,3 +115,112 @@
 .feed-card:active {
   transform: scale(0.985);
 }
+
+/* ─── Desktop phone frame ─────────────────────────────────── */
+@media (min-width: 768px) {
+  body {
+    background: linear-gradient(145deg, #041a0e 0%, #0b4a28 50%, #1a7a50 100%) !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+  }
+
+  #root {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    width: 100%;
+  }
+
+  .page-header {
+    padding-top: 60px !important;
+  }
+
+  /* Outer wrapper — establishes phone dimensions, holds side buttons */
+  .phone-wrapper {
+    position: relative;
+    width: 390px !important;
+    max-width: 390px !important;
+    height: 844px;
+    flex-shrink: 0;
+  }
+
+  /* Volume buttons (left) — silent + up + down via box-shadow */
+  .phone-wrapper::before {
+    content: '';
+    position: absolute;
+    left: -5px;
+    top: 158px;
+    width: 5px;
+    height: 32px;
+    background: #252525;
+    border-radius: 3px 0 0 3px;
+    box-shadow: 0 54px 0 #252525, 0 118px 0 #252525;
+    z-index: 20;
+  }
+
+  /* Power button (right) */
+  .phone-wrapper::after {
+    content: '';
+    position: absolute;
+    right: -5px;
+    top: 220px;
+    width: 5px;
+    height: 76px;
+    background: #252525;
+    border-radius: 0 3px 3px 0;
+    z-index: 20;
+  }
+
+  /* Phone body — clips content, draws bezel */
+  .phone-device {
+    width: 100%;
+    height: 100%;
+    border-radius: 52px;
+    overflow: hidden;
+    position: relative;
+    box-shadow:
+      inset 0 0 0 1px rgba(255,255,255,0.08),
+      0 0 0 2px #777,
+      0 0 0 10px #1a1a1a,
+      0 60px 120px rgba(0,0,0,0.75);
+  }
+
+  /* Dynamic island */
+  .phone-device::before {
+    content: '';
+    position: absolute;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 126px;
+    height: 34px;
+    background: #0d0d0d;
+    border-radius: 20px;
+    z-index: 200;
+    box-shadow: 0 0 0 2px #1a1a1a;
+  }
+}
+
+/* ─── Desktop floating background animations ──────────────── */
+@keyframes float-golf-1 {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  33%       { transform: translate(18px, -30px) rotate(8deg); }
+  66%       { transform: translate(-12px, -14px) rotate(-4deg); }
+}
+@keyframes float-golf-2 {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  50%       { transform: translate(-24px, -42px) rotate(-12deg); }
+}
+@keyframes float-golf-3 {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  25%       { transform: translate(28px, -12px) rotate(6deg); }
+  75%       { transform: translate(-18px, -26px) rotate(-8deg); }
+}
+@keyframes float-golf-4 {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  40%       { transform: translate(-32px, -18px) rotate(14deg); }
+  80%       { transform: translate(16px, -36px) rotate(-5deg); }
+}
