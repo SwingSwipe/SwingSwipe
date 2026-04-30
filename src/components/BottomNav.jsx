@@ -12,8 +12,8 @@ const TABS = [
     ),
   },
   {
-    id: 'friends',
-    label: 'Friends',
+    id: 'crew',
+    label: 'Crew',
     icon: (active) => (
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={active ? '#1D9E75' : '#9ca3af'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
@@ -21,14 +21,13 @@ const TABS = [
     ),
   },
   {
-    id: 'match',
-    label: 'Match',
+    id: 'leaderboard',
+    label: 'Standings',
     icon: (active) => (
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={active ? '#1D9E75' : '#9ca3af'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <circle cx="11" cy="8" r="5"/>
-        <path d="M11 13v9"/>
-        <path d="M7 18h8"/>
-        <circle cx="11" cy="3" r="1" fill={active ? '#1D9E75' : '#9ca3af'} stroke="none"/>
+        <rect x="2" y="14" width="4" height="8"/>
+        <rect x="9" y="9" width="4" height="13"/>
+        <rect x="16" y="4" width="4" height="18"/>
       </svg>
     ),
   },
@@ -59,7 +58,7 @@ const TABS = [
   },
 ]
 
-export default function BottomNav({ activeTab, onTabChange, friendNotif }) {
+export default function BottomNav({ activeTab, onTabChange, crewNotif }) {
   return (
     <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50">
       <div className="flex max-w-lg mx-auto">
@@ -76,7 +75,7 @@ export default function BottomNav({ activeTab, onTabChange, friendNotif }) {
             >
               {tab.label}
             </span>
-            {tab.id === 'friends' && friendNotif && (
+            {tab.id === 'crew' && crewNotif && (
               <span className="absolute top-2 right-[calc(50%-10px)] w-2 h-2 bg-red-500 rounded-full" />
             )}
           </button>

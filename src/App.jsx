@@ -8,8 +8,8 @@ import Login from './pages/Login'
 import Signup from './pages/Signup'
 import Onboarding from './pages/Onboarding'
 import Groups from './pages/Groups'
-import Friends from './pages/Friends'
-import Match from './pages/Match'
+import Crew from './pages/Crew'
+import Leaderboard from './pages/Leaderboard'
 import Rounds from './pages/Rounds'
 import Deals from './pages/Deals'
 
@@ -18,12 +18,12 @@ export default function App() {
   const { profile, loading: profileLoading } = useProfile(user?.id)
   const [authView, setAuthView] = useState('login')
   const [activeTab, setActiveTab] = useState('groups')
-  const [friendNotif, setFriendNotif] = useState(false)
+  const [crewNotif, setCrewNotif] = useState(false)
 
   useEffect(() => {
     if (!user) return
     const channel = supabase
-      .channel('friend-listings')
+      .channel('crew-listing-notif')
       .on('postgres_changes', {
         event: 'INSERT',
         schema: 'public',
@@ -35,7 +35,7 @@ export default function App() {
           .eq('user_id', user.id)
           .eq('friend_id', payload.new.host_id)
           .maybeSingle()
-        if (isFriend) setFriendNotif(true)
+        if (isFriend) setCrewNotif(true)
       })
       .subscribe()
     return () => supabase.removeChannel(channel)
@@ -88,8 +88,8 @@ export default function App() {
   const renderTab = () => {
     switch (activeTab) {
       case 'groups': return <Groups user={user} />
-      case 'friends': return <Friends user={user} onNotifClear={() => setFriendNotif(false)} />
-      case 'match': return <Match user={user} profile={profile} />
+      case 'crew': return <Crew user={user} onNotifClear={() => setCrewNotif(false)} />
+      case 'leaderboard': return <Leaderboard user={user} profile={profile} />
       case 'rounds': return <Rounds user={user} />
       case 'deals': return <Deals />
       default: return <Groups user={user} />
@@ -104,7 +104,7 @@ export default function App() {
       <BottomNav
         activeTab={activeTab}
         onTabChange={setActiveTab}
-        friendNotif={friendNotif}
+        crewNotif={crewNotif}
       />
     </div>
   )
