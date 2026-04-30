@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../supabase'
 import Avatar from '../components/Avatar'
+import AvatarUpload from '../components/AvatarUpload'
 import Modal from '../components/Modal'
 
 const HANDICAP_LABELS = { beginner: 'Beginner', '90s': '90s shooter', '80s': '80s shooter', '70s': '70s shooter', scratch: 'Scratch' }
@@ -56,8 +57,13 @@ function EditProfileModal({ profile, onClose, onSaved }) {
         <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-4" />
         <h2 className="text-lg font-black mb-5">Edit Profile</h2>
         <div className="space-y-4">
+          <AvatarUpload
+            userId={profile.id}
+            name={form.name}
+            currentUrl={form.avatar_url}
+            onUploaded={url => set('avatar_url', url)}
+          />
           <input className="input-field" placeholder="Full name" value={form.name} onChange={e => set('name', e.target.value)} />
-          <input className="input-field" placeholder="Profile photo URL (optional)" value={form.avatar_url} onChange={e => set('avatar_url', e.target.value)} />
           <input className="input-field" placeholder="Location (e.g. New York, NY)" value={form.location} onChange={e => set('location', e.target.value)} />
           <input className="input-field" placeholder="Home course" value={form.home_course} onChange={e => set('home_course', e.target.value)} />
           <input className="input-field" type="number" placeholder="Avg score" value={form.avg_score} onChange={e => set('avg_score', e.target.value)} />

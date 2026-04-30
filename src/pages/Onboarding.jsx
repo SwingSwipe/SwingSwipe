@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { supabase } from '../supabase'
+import AvatarUpload from '../components/AvatarUpload'
 
 const HANDICAP_OPTIONS = [
   { value: 'beginner', label: 'Beginner', sub: 'Just starting out' },
@@ -37,6 +38,7 @@ export default function Onboarding({ user, onComplete }) {
   const [saving, setSaving] = useState(false)
   const [data, setData] = useState({
     name: '',
+    avatar_url: '',
     location: '',
     home_course: '',
     handicap_range: '',
@@ -69,6 +71,7 @@ export default function Onboarding({ user, onComplete }) {
     const { error } = await supabase.from('profiles').upsert({
       id: user.id,
       name: data.name.trim(),
+      avatar_url: data.avatar_url || null,
       location: data.location,
       home_course: data.home_course,
       handicap_range: data.handicap_range,
@@ -104,7 +107,13 @@ export default function Onboarding({ user, onComplete }) {
 
         {/* Step 1 — Name */}
         {step === 1 && (
-          <div className="flex-1 flex flex-col gap-3">
+          <div className="flex-1 flex flex-col gap-4">
+            <AvatarUpload
+              userId={user.id}
+              name={data.name}
+              currentUrl={data.avatar_url}
+              onUploaded={url => set('avatar_url', url)}
+            />
             <input
               className="input-field text-base"
               placeholder="First and last name"
@@ -112,7 +121,7 @@ export default function Onboarding({ user, onComplete }) {
               onChange={e => set('name', e.target.value)}
               autoFocus
             />
-            <p className="text-xs text-gray-400">This is how other golfers will see you. You can't change it later (for now).</p>
+            <p className="text-xs text-gray-400">This is how other golfers will see you.</p>
           </div>
         )}
 
