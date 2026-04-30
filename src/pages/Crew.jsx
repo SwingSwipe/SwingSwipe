@@ -197,15 +197,18 @@ export default function Crew({ user, onFriendRequestsChange }) {
         .in('host_id', ids).eq('is_active', true)
         .gte('date', new Date().toISOString().split('T')[0])
         .order('date', { ascending: true })
-      setListings(friendListings || [])
-
-      // Track which friend listings I've already requested
-      if (friendListings?.length) {
+      // Track which friend listings I've already requested or been accepted to
+      if (!friendListings?.length) {
+        setListings([])
+      } else {
         const { data: myReqs } = await supabase
-          .from('round_requests').select('listing_id')
+          .from('round_requests').select('listing_id, status')
           .eq('requester_id', user.id)
           .in('listing_id', friendListings.map(l => l.id))
-        setRequestedListings(new Set(myReqs?.map(r => r.listing_id) || []))
+        const acceptedIds = new Set(myReqs?.filter(r => r.status === 'accepted').map(r => r.listing_id) || [])
+        const pendingIds = new Set(myReqs?.filter(r => r.status === 'pending').map(r => r.listing_id) || [])
+        setListings(friendListings.filter(l => !acceptedIds.has(l.id)))
+        setRequestedListings(pendingIds)
       }
     } else {
       setFriends([])
