@@ -185,11 +185,34 @@ export default function App() {
   return (
     <>
       <DesktopBackground />
-      <div className="phone-wrapper w-full max-w-lg mx-auto">
-        <div className="phone-device">
-          <div className="flex flex-col h-screen md:h-full bg-[#f0f2f0] overflow-hidden">
-            {renderContent()}
+      <div className="hidden md:flex flex-col items-center" style={{ position: 'relative', zIndex: 10 }}>
+        <div className="phone-wrapper">
+          <div className="phone-device">
+            <div className="flex flex-col md:h-full bg-[#f0f2f0] overflow-hidden">
+              {renderContent()}
+            </div>
           </div>
+        </div>
+        {/* Below-phone tagline — desktop only */}
+        <div className="mt-8 flex flex-col items-center gap-3">
+          <p className="text-white/50 text-xs tracking-widest uppercase font-semibold">SwingSwipe</p>
+          <p className="text-white/70 text-sm font-medium">Find the right people to play with ⛳</p>
+          <div className="flex gap-3 mt-1">
+            <span className="flex items-center gap-1.5 bg-white/10 text-white/60 text-xs font-semibold px-4 py-2 rounded-full border border-white/15">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
+              iOS — Coming soon
+            </span>
+            <span className="flex items-center gap-1.5 bg-white/10 text-white/60 text-xs font-semibold px-4 py-2 rounded-full border border-white/15">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M17.523 15.3414c-.5511 0-.9993-.4486-.9993-.9997s.4482-.9993.9993-.9993c.5511 0 .9993.4482.9993.9993.0001.5511-.4482.9997-.9993.9997m-11.046 0c-.5511 0-.9993-.4486-.9993-.9997s.4482-.9993.9993-.9993c.5511 0 .9993.4482.9993.9993 0 .5511-.4482.9997-.9993.9997m11.4044-6.6012l1.9297-3.3423c.1065-.1847.0435-.4218-.1408-.5284-.1847-.1065-.4218-.0435-.5284.1408l-1.9543 3.388C15.5457 7.8468 13.8626 7.4 12 7.4c-1.8626 0-3.5457.4468-4.8304 1.1093L5.2156 5.1214c-.1065-.1847-.3438-.2477-.5284-.1408-.1843.1065-.2473.3437-.1408.5284l1.9297 3.3423C4.2177 10.3867 3 12.3802 3 14.6h18c0-2.2198-1.2177-4.2133-3.1186-5.8598"/></svg>
+              Android — Coming soon
+            </span>
+          </div>
+        </div>
+      </div>
+      {/* Mobile: no frame wrapper needed */}
+      <div className="md:hidden w-full">
+        <div className="flex flex-col h-screen bg-[#f0f2f0] overflow-hidden">
+          {renderContent()}
         </div>
       </div>
     </>
