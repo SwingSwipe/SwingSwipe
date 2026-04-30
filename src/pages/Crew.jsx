@@ -157,10 +157,13 @@ function JoinCrewModal({ userId, onClose, onJoined }) {
   )
 }
 
-export default function Crew({ user }) {
+export default function Crew({ user, onFriendRequestsChange }) {
   const [crews, setCrews] = useState([])
   const [friends, setFriends] = useState([])
   const [listings, setListings] = useState([])
+  const [incomingRequests, setIncomingRequests] = useState([])
+  const [sentRequestIds, setSentRequestIds] = useState(new Set())
+  const [friendIds, setFriendIds] = useState(new Set())
   const [loading, setLoading] = useState(true)
   const [activeChat, setActiveChat] = useState(null)
   const [showJoin, setShowJoin] = useState(false)
@@ -171,28 +174,38 @@ export default function Crew({ user }) {
 
   const fetchAll = async () => {
     setLoading(true)
-    const [crewRes, friendRes] = await Promise.all([
+    const [crewRes, friendRes, incomingRes, sentRes] = await Promise.all([
       supabase.from('crew_members').select('crew_id, crews(id, name, created_by)').eq('user_id', user.id),
       supabase.from('friends').select('friend_id').eq('user_id', user.id),
+      supabase.from('friend_requests')
+        .select('id, from_id, created_at, profiles!friend_requests_from_id_fkey(id, name, avatar_url, home_course)')
+        .eq('to_id', user.id).eq('status', 'pending'),
+      supabase.from('friend_requests').select('to_id').eq('from_id', user.id).eq('status', 'pending'),
     ])
 
     const crewList = crewRes.data?.map(r => r.crews).filter(Boolean) || []
     setCrews(crewList)
 
-    const friendIds = friendRes.data?.map(f => f.friend_id) || []
-    if (friendIds.length) {
-      const { data: profiles } = await supabase.from('profiles').select('*').in('id', friendIds)
+    const ids = friendRes.data?.map(f => f.friend_id) || []
+    setFriendIds(new Set(ids))
+    if (ids.length) {
+      const { data: profiles } = await supabase.from('profiles').select('*').in('id', ids)
       setFriends(profiles || [])
-
       const { data: friendListings } = await supabase
-        .from('round_listings')
-        .select('*, profiles(name, avatar_url)')
-        .in('host_id', friendIds)
-        .eq('is_active', true)
+        .from('round_listings').select('*, profiles(name, avatar_url)')
+        .in('host_id', ids).eq('is_active', true)
         .gte('date', new Date().toISOString().split('T')[0])
         .order('date', { ascending: true })
       setListings(friendListings || [])
+    } else {
+      setFriends([])
+      setListings([])
     }
+
+    const incoming = incomingRes.data || []
+    setIncomingRequests(incoming)
+    setSentRequestIds(new Set(sentRes.data?.map(r => r.to_id) || []))
+    onFriendRequestsChange?.(incoming.length)
     setLoading(false)
   }
 
@@ -207,14 +220,30 @@ export default function Crew({ user }) {
     setSearchResults(data || [])
   }
 
-  const addFriend = async (friendId) => {
-    const { data: existing } = await supabase.from('friends').select('id').eq('user_id', user.id).eq('friend_id', friendId).maybeSingle()
-    if (existing) return
+  const sendRequest = async (toId) => {
+    await supabase.from('friend_requests').insert({ from_id: user.id, to_id: toId, status: 'pending' })
+    setSentRequestIds(s => new Set([...s, toId]))
+  }
+
+  const acceptRequest = async (req) => {
+    await supabase.from('friend_requests').update({ status: 'accepted' }).eq('id', req.id)
     await supabase.from('friends').insert([
-      { user_id: user.id, friend_id: friendId },
-      { user_id: friendId, friend_id: user.id },
+      { user_id: user.id, friend_id: req.from_id },
+      { user_id: req.from_id, friend_id: user.id },
     ])
     fetchAll()
+  }
+
+  const declineRequest = async (reqId) => {
+    await supabase.from('friend_requests').update({ status: 'declined' }).eq('id', reqId)
+    setIncomingRequests(r => r.filter(x => x.id !== reqId))
+    onFriendRequestsChange?.(incomingRequests.length - 1)
+  }
+
+  const getAddState = (id) => {
+    if (friendIds.has(id)) return 'friends'
+    if (sentRequestIds.has(id)) return 'sent'
+    return 'add'
   }
 
   return (
@@ -239,20 +268,32 @@ export default function Crew({ user }) {
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 py-4 pb-24">
+        {/* Search results */}
         {searchResults.length > 0 && (
           <div className="mb-5">
-            <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-2">Results</h2>
+            <h2 className="section-label mb-2">Results</h2>
             <div className="space-y-2">
-              {searchResults.map(p => (
-                <div key={p.id} className="card p-3 flex items-center gap-3">
-                  <Avatar name={p.name} url={p.avatar_url} size={10} />
-                  <div className="flex-1">
-                    <p className="font-semibold text-sm">{p.name}</p>
-                    <p className="text-xs text-gray-400">{p.home_course || 'No home course'}</p>
+              {searchResults.map(p => {
+                const state = getAddState(p.id)
+                return (
+                  <div key={p.id} className="card p-3 flex items-center gap-3">
+                    <Avatar name={p.name} url={p.avatar_url} size={10} />
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-sm">{p.name}</p>
+                      <p className="text-xs text-gray-400 truncate">{p.home_course || 'No home course'}</p>
+                    </div>
+                    {state === 'friends' ? (
+                      <span className="text-xs text-[#1D9E75] font-semibold px-3 py-1.5">✓ Friends</span>
+                    ) : state === 'sent' ? (
+                      <span className="text-xs text-gray-400 font-semibold px-3 py-1.5">Requested</span>
+                    ) : (
+                      <button onClick={() => sendRequest(p.id)} className="text-xs bg-[#1D9E75] text-white px-3 py-1.5 rounded-[8px] font-semibold">
+                        + Add
+                      </button>
+                    )}
                   </div>
-                  <button onClick={() => addFriend(p.id)} className="text-xs bg-[#1D9E75] text-white px-3 py-1.5 rounded-[8px] font-semibold">Add</button>
-                </div>
-              ))}
+                )
+              })}
             </div>
           </div>
         )}
@@ -263,10 +304,41 @@ export default function Crew({ user }) {
           </div>
         ) : (
           <>
+            {/* Friend requests inbox */}
+            {incomingRequests.length > 0 && (
+              <div className="mb-5">
+                <h2 className="section-label mb-2">Friend requests <span className="text-[#1D9E75]">({incomingRequests.length})</span></h2>
+                <div className="space-y-2">
+                  {incomingRequests.map(req => {
+                    const p = req.profiles
+                    return (
+                      <div key={req.id} className="card p-3 flex items-center gap-3">
+                        <Avatar name={p?.name} url={p?.avatar_url} size={10} />
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-sm">{p?.name}</p>
+                          <p className="text-xs text-gray-400 truncate">{p?.home_course || 'No home course'}</p>
+                        </div>
+                        <div className="flex gap-2 shrink-0">
+                          <button onClick={() => acceptRequest(req)}
+                            className="text-xs bg-[#1D9E75] text-white px-3 py-1.5 rounded-[8px] font-semibold">
+                            Accept
+                          </button>
+                          <button onClick={() => declineRequest(req.id)}
+                            className="text-xs bg-gray-100 text-gray-500 px-3 py-1.5 rounded-[8px] font-semibold">
+                            Decline
+                          </button>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
             {/* Crews */}
             {crews.length > 0 && (
               <div className="mb-5">
-                <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-2">Your crews</h2>
+                <h2 className="section-label mb-2">Your crews</h2>
                 <div className="space-y-2">
                   {crews.map(crew => (
                     <div key={crew.id} className="card p-4 flex items-center justify-between">
@@ -274,10 +346,8 @@ export default function Crew({ user }) {
                         <p className="font-semibold text-sm">{crew.name}</p>
                         <p className="text-xs text-gray-400">Tap to open chat</p>
                       </div>
-                      <button
-                        onClick={() => setActiveChat(crew)}
-                        className="text-sm bg-[#1D9E75] text-white px-3 py-1.5 rounded-[8px] font-semibold"
-                      >
+                      <button onClick={() => setActiveChat(crew)}
+                        className="text-sm bg-[#1D9E75] text-white px-3 py-1.5 rounded-[8px] font-semibold">
                         Chat 💬
                       </button>
                     </div>
@@ -289,14 +359,14 @@ export default function Crew({ user }) {
             {/* Playing this week */}
             {listings.length > 0 && (
               <div className="mb-5">
-                <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-2">Playing this week</h2>
+                <h2 className="section-label mb-2">Playing this week</h2>
                 {listings.map(l => <RoundCard key={l.id} listing={l} currentUserId={user.id} />)}
               </div>
             )}
 
             {/* Friends list */}
             <div>
-              <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Golf crew</h2>
+              <h2 className="section-label mb-3">Golf crew</h2>
               {friends.length === 0 ? (
                 <div className="text-center py-8">
                   <p className="text-3xl mb-2">🏌️</p>

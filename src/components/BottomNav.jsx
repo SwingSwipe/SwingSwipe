@@ -58,7 +58,7 @@ const TABS = [
   },
 ]
 
-export default function BottomNav({ activeTab, onTabChange, gameNotif }) {
+export default function BottomNav({ activeTab, onTabChange, gameNotif, crewNotif }) {
   return (
     <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 z-50 shadow-[0_-4px_20px_rgba(0,0,0,0.06)]">
       <div className="flex max-w-lg mx-auto">
@@ -80,6 +80,11 @@ export default function BottomNav({ activeTab, onTabChange, gameNotif }) {
               {tab.id === 'games' && gameNotif > 0 && (
                 <span className="absolute top-1.5 right-[calc(50%-14px)] w-4 h-4 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center font-bold border border-white">
                   {gameNotif}
+                </span>
+              )}
+              {tab.id === 'crew' && crewNotif > 0 && (
+                <span className="absolute top-1.5 right-[calc(50%-14px)] w-4 h-4 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center font-bold border border-white">
+                  {crewNotif}
                 </span>
               )}
             </button>

@@ -20,6 +20,7 @@ export default function App() {
   const [authView, setAuthView] = useState('login')
   const [activeTab, setActiveTab] = useState('discover')
   const [gameNotif, setGameNotif] = useState(0)
+  const [crewNotif, setCrewNotif] = useState(0)
   const [isPasswordRecovery, setIsPasswordRecovery] = useState(false)
 
   useEffect(() => {
@@ -96,7 +97,7 @@ export default function App() {
     switch (activeTab) {
       case 'discover': return <Discover user={user} />
       case 'games':    return <Games user={user} />
-      case 'crew':     return <Crew user={user} />
+      case 'crew':     return <Crew user={user} onFriendRequestsChange={setCrewNotif} />
       case 'rounds':   return <Rounds user={user} />
       case 'profile':  return <Profile user={user} />
       default:         return <Discover user={user} />
@@ -110,8 +111,13 @@ export default function App() {
       </div>
       <BottomNav
         activeTab={activeTab}
-        onTabChange={(tab) => { setActiveTab(tab); if (tab === 'games') setGameNotif(0) }}
+        onTabChange={(tab) => {
+          setActiveTab(tab)
+          if (tab === 'games') setGameNotif(0)
+          if (tab === 'crew') setCrewNotif(0)
+        }}
         gameNotif={gameNotif}
+        crewNotif={crewNotif}
       />
     </div>
   )

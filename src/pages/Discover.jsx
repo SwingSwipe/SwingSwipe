@@ -303,6 +303,7 @@ export default function Discover({ user }) {
     const { error } = await supabase.from('round_requests').insert({
       listing_id: game.id,
       requester_id: user.id,
+      status: 'pending',
     })
     if (!error) setRequestStatus(s => ({ ...s, [game.id]: 'pending' }))
   }
