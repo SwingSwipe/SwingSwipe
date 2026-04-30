@@ -202,7 +202,6 @@ export default function Profile({ user }) {
             Edit
           </button>
         </div>
-        </div>
       </div>
 
       {/* Profile card — overlaps header */}
