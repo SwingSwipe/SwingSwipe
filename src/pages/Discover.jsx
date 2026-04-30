@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../supabase'
 import Avatar from '../components/Avatar'
 import Modal from '../components/Modal'
+import PublicProfileModal from '../components/PublicProfileModal'
 
 const HANDICAP_LABELS = {
   beginner: 'Beginner',
@@ -82,10 +83,20 @@ function PlayerCard({ player, onTap }) {
   )
 }
 
-function GameCard({ game, currentUserId, onRequest, onCancel, requestStatus }) {
+const SKILL_MEETS = {
+  beginner: new Set(['all_welcome']),
+  '90s':    new Set(['all_welcome', 'sub_100']),
+  '80s':    new Set(['all_welcome', 'sub_100', 'sub_90']),
+  '70s':    new Set(['all_welcome', 'sub_100', 'sub_90', 'sub_80']),
+  scratch:  new Set(['all_welcome', 'sub_100', 'sub_90', 'sub_80', 'scratch']),
+}
+
+function GameCard({ game, currentUserId, userHandicap, onRequest, onCancel, onHostTap, requestStatus, acceptedPlayers }) {
   const spotsLeft = game.spots_total - game.spots_filled
   const isOwn = game.host_id === currentUserId
   const status = requestStatus[game.id]
+  const mismatch = game.skill_range && game.skill_range !== 'all_welcome' && userHandicap
+    && !SKILL_MEETS[userHandicap]?.has(game.skill_range)
 
   return (
     <div className="card mb-3 overflow-hidden">
@@ -106,21 +117,43 @@ function GameCard({ game, currentUserId, onRequest, onCancel, requestStatus }) {
           </div>
         </div>
 
-        <div className="flex items-center gap-2 mb-3">
+        <button
+          onClick={() => !isOwn && onHostTap?.(game.host_id)}
+          className={`flex items-center gap-2 mb-3 w-full text-left ${!isOwn ? 'active:opacity-70' : ''}`}
+        >
           <Avatar name={game.profiles?.name} url={game.profiles?.avatar_url} size={6} />
-          <div>
+          <div className="flex-1">
             <p className="text-xs font-medium">{game.profiles?.name?.split(' ')[0]} {game.profiles?.name?.split(' ')[1]?.[0]}.</p>
-            <p className="text-xs text-gray-400">Host</p>
+            <p className="text-xs text-gray-400">Host {!isOwn && '· tap to view'}</p>
           </div>
           {game.vibe && (
-            <span className="pill bg-gray-100 text-gray-600 text-xs ml-auto">
+            <span className="pill bg-gray-100 text-gray-600 text-xs">
               {VIBE_LABELS[game.vibe] || game.vibe}
             </span>
           )}
-        </div>
+        </button>
+
+        {/* Accepted players */}
+        {acceptedPlayers?.length > 0 && (
+          <div className="flex items-center gap-2 mb-3">
+            <div className="flex -space-x-1.5">
+              {acceptedPlayers.slice(0, 4).map(p => (
+                <Avatar key={p.id} name={p.name} url={p.avatar_url} size={6} />
+              ))}
+            </div>
+            <p className="text-xs text-gray-400">
+              {acceptedPlayers.length === 1
+                ? `${acceptedPlayers[0].name?.split(' ')[0]} joined`
+                : `${acceptedPlayers.length} players joined`}
+            </p>
+          </div>
+        )}
 
         {game.skill_range && game.skill_range !== 'all_welcome' && (
-          <p className="text-xs text-gray-400 mb-3">🎯 {game.skill_range.replace('_', ' ').replace('sub', 'Sub-')} players</p>
+          <p className={`text-xs mb-3 ${mismatch ? 'text-orange-500 font-semibold' : 'text-gray-400'}`}>
+            {mismatch ? '⚠️' : '🎯'} {game.skill_range.replace('_', ' ').replace('sub', 'Sub-')} players
+            {mismatch && ' — outside your level'}
+          </p>
         )}
 
         {game.notes && (
@@ -233,13 +266,15 @@ function PlayerModal({ player, currentUserId, onClose, onMessage }) {
   )
 }
 
-export default function Discover({ user }) {
+export default function Discover({ user, userProfile }) {
   const [mode, setMode] = useState('players')
   const [players, setPlayers] = useState([])
   const [games, setGames] = useState([])
   const [loading, setLoading] = useState(true)
   const [selectedPlayer, setSelectedPlayer] = useState(null)
+  const [viewingProfile, setViewingProfile] = useState(null)
   const [requestStatus, setRequestStatus] = useState({})
+  const [gamePlayers, setGamePlayers] = useState({})
   const [filters, setFilters] = useState({ handicap: 'all', pace: 'all' })
 
   useEffect(() => {
@@ -281,17 +316,25 @@ export default function Discover({ user }) {
       .order('date', { ascending: true })
       .order('tee_time', { ascending: true })
 
-    // Get existing requests
     if (data?.length) {
-      const { data: reqs } = await supabase
-        .from('round_requests')
-        .select('listing_id, status')
-        .eq('requester_id', user.id)
-        .in('listing_id', data.map(g => g.id))
+      const ids = data.map(g => g.id)
+
+      const [{ data: reqs }, { data: accepted }] = await Promise.all([
+        supabase.from('round_requests').select('listing_id, status').eq('requester_id', user.id).in('listing_id', ids),
+        supabase.from('round_requests').select('listing_id, profiles(id, name, avatar_url)').in('listing_id', ids).eq('status', 'accepted'),
+      ])
 
       const statusMap = {}
       reqs?.forEach(r => { statusMap[r.listing_id] = r.status })
       setRequestStatus(statusMap)
+
+      const playersMap = {}
+      accepted?.forEach(r => {
+        if (!r.profiles) return
+        if (!playersMap[r.listing_id]) playersMap[r.listing_id] = []
+        playersMap[r.listing_id].push(r.profiles)
+      })
+      setGamePlayers(playersMap)
     }
 
     setGames(data || [])
@@ -391,8 +434,8 @@ export default function Discover({ user }) {
           players.length === 0 ? (
             <div className="text-center py-14">
               <p className="text-5xl mb-3">🏌️</p>
-              <p className="font-bold text-gray-700 text-lg">No golfers found</p>
-              <p className="text-sm text-gray-400 mt-2">Be the first in your area — invite your golf crew.</p>
+              <p className="font-bold text-gray-700 text-lg">No golfers yet</p>
+              <p className="text-sm text-gray-400 mt-2">SwingSwipe is just getting started — invite your golf crew and be one of the first.</p>
             </div>
           ) : (
             <>
@@ -407,7 +450,7 @@ export default function Discover({ user }) {
             <div className="text-center py-14">
               <p className="text-5xl mb-3">⛳</p>
               <p className="font-bold text-gray-700 text-lg">No open games</p>
-              <p className="text-sm text-gray-400 mt-2">Post your tee time in the Games tab and find players.</p>
+              <p className="text-sm text-gray-400 mt-2">Be the first — post your tee time in the Games tab.</p>
             </div>
           ) : (
             <>
@@ -417,9 +460,12 @@ export default function Discover({ user }) {
                   key={g.id}
                   game={g}
                   currentUserId={user.id}
+                  userHandicap={userProfile?.handicap_range}
                   onRequest={handleRequest}
                   onCancel={handleCancelRequest}
+                  onHostTap={id => setViewingProfile(id)}
                   requestStatus={requestStatus}
+                  acceptedPlayers={gamePlayers[g.id]}
                 />
               ))}
             </>
@@ -433,6 +479,13 @@ export default function Discover({ user }) {
           currentUserId={user.id}
           onClose={() => setSelectedPlayer(null)}
           onMessage={handleInvite}
+        />
+      )}
+      {viewingProfile && (
+        <PublicProfileModal
+          userId={viewingProfile}
+          currentUserId={user.id}
+          onClose={() => setViewingProfile(null)}
         />
       )}
     </div>

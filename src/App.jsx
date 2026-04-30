@@ -156,7 +156,7 @@ export default function App() {
 
     const renderTab = () => {
       switch (activeTab) {
-        case 'discover': return <Discover user={user} />
+        case 'discover': return <Discover user={user} userProfile={profile} />
         case 'games':    return <Games user={user} />
         case 'crew':     return <Crew user={user} onFriendRequestsChange={setCrewNotif} />
         case 'rounds':   return <Rounds user={user} />

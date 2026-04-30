@@ -3,6 +3,7 @@ import { supabase } from '../supabase'
 import Avatar from '../components/Avatar'
 import Modal from '../components/Modal'
 import CourseInput from '../components/CourseInput'
+import PublicProfileModal from '../components/PublicProfileModal'
 
 const VIBE_LABELS = {
   casual: '😊 Casual',
@@ -315,12 +316,14 @@ export default function Games({ user }) {
   const [tab, setTab] = useState('discover')
   const [myGames, setMyGames] = useState([])
   const [joinedGames, setJoinedGames] = useState([])
+  const [joinedGamePlayers, setJoinedGamePlayers] = useState({})
   const [pendingRequests, setPendingRequests] = useState({})
   const [loading, setLoading] = useState(true)
   const [showPost, setShowPost] = useState(false)
   const [chatGame, setChatGame] = useState(null)
   const [rateGame, setRateGame] = useState(null)
   const [ratePlayers, setRatePlayers] = useState([])
+  const [viewingProfile, setViewingProfile] = useState(null)
 
   useEffect(() => { fetchGames() }, [])
 
@@ -355,12 +358,31 @@ export default function Games({ user }) {
     // Games I've joined
     const { data: joined } = await supabase
       .from('round_requests')
-      .select('*, round_listings(*, profiles!round_listings_host_id_fkey(name, avatar_url))')
+      .select('*, round_listings(*, profiles!round_listings_host_id_fkey(id, name, avatar_url))')
       .eq('requester_id', user.id)
       .eq('status', 'accepted')
 
+    const joinedListings = joined?.map(j => j.round_listings).filter(Boolean) || []
+
+    // Fetch other accepted players for each joined game
+    if (joinedListings.length) {
+      const { data: players } = await supabase
+        .from('round_requests')
+        .select('listing_id, profiles(id, name, avatar_url)')
+        .in('listing_id', joinedListings.map(l => l.id))
+        .eq('status', 'accepted')
+
+      const playersMap = {}
+      players?.forEach(r => {
+        if (!r.profiles) return
+        if (!playersMap[r.listing_id]) playersMap[r.listing_id] = []
+        playersMap[r.listing_id].push(r.profiles)
+      })
+      setJoinedGamePlayers(playersMap)
+    }
+
     setMyGames(mine || [])
-    setJoinedGames(joined?.map(j => j.round_listings).filter(Boolean) || [])
+    setJoinedGames(joinedListings)
     setLoading(false)
   }
 
@@ -372,6 +394,13 @@ export default function Games({ user }) {
 
   const handleDecline = async (requestId) => {
     await supabase.from('round_requests').update({ status: 'declined' }).eq('id', requestId)
+    fetchGames()
+  }
+
+  const handleWithdraw = async (game) => {
+    if (!window.confirm('Withdraw from this game?')) return
+    await supabase.from('round_requests').delete().eq('listing_id', game.id).eq('requester_id', user.id)
+    await supabase.from('round_listings').update({ spots_filled: Math.max(0, game.spots_filled - 1) }).eq('id', game.id)
     fetchGames()
   }
 
@@ -472,11 +501,13 @@ export default function Games({ user }) {
                           <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">{requests.length} request{requests.length > 1 ? 's' : ''}</p>
                           {requests.map(req => (
                             <div key={req.id} className="flex items-center gap-3 py-2 border-b border-gray-50 last:border-0">
-                              <Avatar name={req.profiles?.name} url={req.profiles?.avatar_url} size={9} />
-                              <div className="flex-1">
+                              <button onClick={() => setViewingProfile(req.profiles?.id)} className="active:opacity-70">
+                                <Avatar name={req.profiles?.name} url={req.profiles?.avatar_url} size={9} />
+                              </button>
+                              <button className="flex-1 text-left active:opacity-70" onClick={() => setViewingProfile(req.profiles?.id)}>
                                 <p className="font-semibold text-sm">{req.profiles?.name?.split(' ')[0]} {req.profiles?.name?.split(' ')[1]?.[0]}.</p>
-                                <p className="text-xs text-gray-400">{req.profiles?.handicap_range || 'No handicap listed'}</p>
-                              </div>
+                                <p className="text-xs text-gray-400">{req.profiles?.handicap_range || 'No handicap listed'} · tap to view profile</p>
+                              </button>
                               <div className="flex gap-2">
                                 <button onClick={() => handleDecline(req.id)} className="w-8 h-8 rounded-full bg-red-50 text-red-500 flex items-center justify-center font-bold">✕</button>
                                 <button onClick={() => handleAccept(req.id, game.id)} className="w-8 h-8 rounded-full bg-green-50 text-green-600 flex items-center justify-center font-bold">✓</button>
@@ -515,29 +546,58 @@ export default function Games({ user }) {
                 <p className="text-sm text-gray-400 mt-2">Find open games in the Discover tab.</p>
               </div>
             ) : (
-              joinedGames.map(game => (
-                <div key={game.id} className="card mb-3 overflow-hidden">
-                  <div className="h-1.5 bg-[#1D9E75]" />
-                  <div className="p-4">
-                    <p className="font-bold">{game.course_name}</p>
-                    <p className="text-xs text-gray-400 mt-0.5 mb-3">
-                      {new Date(game.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
-                      {game.tee_time && ` · ${game.tee_time.slice(0, 5)}`}
-                      {game.profiles?.name && ` · Hosted by ${game.profiles.name.split(' ')[0]}`}
-                    </p>
-                    <div className="flex gap-2">
-                      <button onClick={() => setChatGame(game)} className="flex-1 py-2 bg-gray-100 rounded-[8px] text-sm font-semibold text-gray-700">
-                        💬 Chat
-                      </button>
-                      {isPast(game.date) && (
-                        <button onClick={() => openRateModal(game)} className="flex-1 py-2 bg-[#1D9E75]/10 rounded-[8px] text-sm font-semibold text-[#1D9E75]">
-                          ⭐ Rate players
+              joinedGames.map(game => {
+                const others = (joinedGamePlayers[game.id] || []).filter(p => p.id !== user.id)
+                const past = isPast(game.date)
+                return (
+                  <div key={game.id} className="card mb-3 overflow-hidden">
+                    <div className="h-1.5 bg-[#1D9E75]" />
+                    <div className="p-4">
+                      <p className="font-bold">{game.course_name}</p>
+                      <p className="text-xs text-gray-400 mt-0.5 mb-3">
+                        {new Date(game.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                        {game.tee_time && ` · ${game.tee_time.slice(0, 5)}`}
+                      </p>
+
+                      {/* Host + other players */}
+                      <div className="flex items-center gap-2 mb-3">
+                        <button onClick={() => setViewingProfile(game.profiles?.id)} className="flex items-center gap-1.5 active:opacity-70">
+                          <Avatar name={game.profiles?.name} url={game.profiles?.avatar_url} size={7} />
+                          <span className="text-xs text-gray-500">{game.profiles?.name?.split(' ')[0]} <span className="text-gray-400">· Host</span></span>
                         </button>
-                      )}
+                        {others.length > 0 && (
+                          <>
+                            <span className="text-gray-300">·</span>
+                            <div className="flex -space-x-1.5">
+                              {others.slice(0, 3).map(p => (
+                                <button key={p.id} onClick={() => setViewingProfile(p.id)} className="active:opacity-70">
+                                  <Avatar name={p.name} url={p.avatar_url} size={7} />
+                                </button>
+                              ))}
+                            </div>
+                            <span className="text-xs text-gray-400">+{others.length} playing</span>
+                          </>
+                        )}
+                      </div>
+
+                      <div className="flex gap-2">
+                        <button onClick={() => setChatGame(game)} className="flex-1 py-2 bg-gray-100 rounded-[8px] text-sm font-semibold text-gray-700">
+                          💬 Chat
+                        </button>
+                        {past ? (
+                          <button onClick={() => openRateModal(game)} className="flex-1 py-2 bg-[#1D9E75]/10 rounded-[8px] text-sm font-semibold text-[#1D9E75]">
+                            ⭐ Rate players
+                          </button>
+                        ) : (
+                          <button onClick={() => handleWithdraw(game)} className="flex-1 py-2 bg-red-50 rounded-[8px] text-sm font-semibold text-red-500">
+                            Withdraw
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))
+                )
+              })
             )}
           </>
         )}
@@ -560,6 +620,13 @@ export default function Games({ user }) {
           players={ratePlayers}
           onClose={() => setRateGame(null)}
           onDone={fetchGames}
+        />
+      )}
+      {viewingProfile && (
+        <PublicProfileModal
+          userId={viewingProfile}
+          currentUserId={user.id}
+          onClose={() => setViewingProfile(null)}
         />
       )}
     </div>

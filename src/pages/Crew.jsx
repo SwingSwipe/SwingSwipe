@@ -419,6 +419,7 @@ export default function Crew({ user, onFriendRequestsChange }) {
                     currentUserId={user.id}
                     onJoin={handleJoinRequest}
                     onCancel={handleCancelJoinRequest}
+                    onHostTap={id => setViewingProfile(id)}
                     requested={requestedListings.has(l.id)}
                   />
                 ))}
