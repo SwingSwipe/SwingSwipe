@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../supabase'
 import Avatar from '../components/Avatar'
 import Modal from '../components/Modal'
+import CourseInput from '../components/CourseInput'
 
 const VIBE_LABELS = {
   casual: '😊 Casual',
@@ -249,7 +250,7 @@ function PostGameModal({ userId, onClose, onPosted }) {
           <h2 className="text-base font-black mb-3">Post a game ⛳</h2>
 
           <div className="space-y-3">
-            <input className="input-field" placeholder="Course name" value={form.course_name} onChange={e => set('course_name', e.target.value)} />
+            <CourseInput placeholder="Course name" value={form.course_name} onChange={v => set('course_name', v)} />
             <div className="grid grid-cols-2 gap-2">
               <div>
                 <label className="text-xs text-gray-500 mb-1 block">Date</label>

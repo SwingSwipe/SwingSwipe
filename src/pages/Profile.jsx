@@ -3,6 +3,7 @@ import { supabase } from '../supabase'
 import Avatar from '../components/Avatar'
 import AvatarUpload from '../components/AvatarUpload'
 import Modal from '../components/Modal'
+import CourseInput from '../components/CourseInput'
 
 const HANDICAP_LABELS = { beginner: 'Beginner', '90s': '90s shooter', '80s': '80s shooter', '70s': '70s shooter', scratch: 'Scratch' }
 const PACE_LABELS = { fast: '⚡ Fast', moderate: '🚶 Moderate', relaxed: '😌 Relaxed' }
@@ -65,7 +66,7 @@ function EditProfileModal({ profile, onClose, onSaved }) {
           />
           <input className="input-field" placeholder="Full name" value={form.name} onChange={e => set('name', e.target.value)} />
           <input className="input-field" placeholder="Location (e.g. New York, NY)" value={form.location} onChange={e => set('location', e.target.value)} />
-          <input className="input-field" placeholder="Home course" value={form.home_course} onChange={e => set('home_course', e.target.value)} />
+          <CourseInput placeholder="Home course" value={form.home_course} onChange={v => set('home_course', v)} />
           <input className="input-field" type="number" placeholder="Avg score" value={form.avg_score} onChange={e => set('avg_score', e.target.value)} />
 
           <div>

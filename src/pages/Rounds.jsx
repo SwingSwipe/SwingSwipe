@@ -1,6 +1,7 @@
 import Modal from '../components/Modal'
 import { useState, useEffect } from 'react'
 import { supabase } from '../supabase'
+import CourseInput from '../components/CourseInput'
 
 const CURRENT_SEASON = new Date().getFullYear()
 
@@ -54,7 +55,7 @@ function LogRoundModal({ userId, friends, onClose, onLogged }) {
         </div>
 
         <div className="space-y-4">
-          <input className="input-field" placeholder="Course name" value={form.course_name} onChange={e => set('course_name', e.target.value)} />
+          <CourseInput placeholder="Course name" value={form.course_name} onChange={v => set('course_name', v)} />
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-xs text-gray-500 mb-1 block">Date</label>

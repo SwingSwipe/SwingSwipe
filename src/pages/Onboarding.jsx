@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { supabase } from '../supabase'
 import AvatarUpload from '../components/AvatarUpload'
+import CourseInput from '../components/CourseInput'
 
 const HANDICAP_OPTIONS = [
   { value: 'beginner', label: 'Beginner', sub: 'Just starting out' },
@@ -134,11 +135,10 @@ export default function Onboarding({ user, onComplete }) {
               value={data.location}
               onChange={e => set('location', e.target.value)}
             />
-            <input
-              className="input-field"
+            <CourseInput
               placeholder="Home course (e.g. Bethpage Black)"
               value={data.home_course}
-              onChange={e => set('home_course', e.target.value)}
+              onChange={v => set('home_course', v)}
             />
             <p className="text-xs text-gray-400">Used to find rounds near you. You can skip this and add it later.</p>
           </div>
