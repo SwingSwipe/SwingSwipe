@@ -100,12 +100,34 @@ export default function App() {
     return () => subscription.unsubscribe()
   }, [])
 
-  // Request notification permission once logged in
+  // Request notification permission and save push subscription
   useEffect(() => {
-    if (user && 'Notification' in window && Notification.permission === 'default') {
-      Notification.requestPermission()
+    if (!user || !('Notification' in window) || !('serviceWorker' in navigator)) return
+    const setup = async () => {
+      let permission = Notification.permission
+      if (permission === 'default') permission = await Notification.requestPermission()
+      if (permission !== 'granted') return
+      try {
+        const reg = await navigator.serviceWorker.ready
+        let sub = await reg.pushManager.getSubscription()
+        if (!sub) {
+          sub = await reg.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: import.meta.env.VITE_VAPID_PUBLIC_KEY,
+          })
+        }
+        await supabase.from('push_subscriptions').upsert(
+          { user_id: user.id, subscription: sub.toJSON() },
+          { onConflict: 'user_id' }
+        )
+      } catch (e) { /* push not supported or blocked */ }
     }
+    setup()
   }, [user])
+
+  const sendPush = (userId, title, body) => {
+    supabase.functions.invoke('send-push', { body: { user_id: userId, title, body } }).catch(() => {})
+  }
 
   // Listen for new game requests on my listings
   useEffect(() => {
@@ -124,6 +146,8 @@ export default function App() {
               body: `Someone wants to join your game at ${listing.course_name}`,
               icon: '/icon-192.png',
             })
+          } else {
+            sendPush(user.id, 'New join request ⛳', `Someone wants to join your game at ${listing.course_name}`)
           }
         }
       })
@@ -140,13 +164,16 @@ export default function App() {
         event: 'UPDATE', schema: 'public', table: 'round_requests',
         filter: `requester_id=eq.${user.id}`,
       }, async (payload) => {
-        if (payload.new.status === 'accepted' && Notification.permission === 'granted') {
+        if (payload.new.status === 'accepted') {
           const { data: listing } = await supabase
             .from('round_listings').select('course_name').eq('id', payload.new.listing_id).single()
-          new Notification("You're in! 🎉", {
-            body: `Your request to join ${listing?.course_name || 'the game'} was accepted`,
-            icon: '/icon-192.png',
-          })
+          const title = "You're in! 🎉"
+          const body = `Your request to join ${listing?.course_name || 'the game'} was accepted`
+          if (Notification.permission === 'granted') {
+            new Notification(title, { body, icon: '/icon-192.png' })
+          } else {
+            sendPush(user.id, title, body)
+          }
         }
       })
       .subscribe()

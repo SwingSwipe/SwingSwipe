@@ -429,7 +429,15 @@ export default function Games({ user }) {
 
   const handleAccept = async (requestId, listingId) => {
     await supabase.from('round_requests').update({ status: 'accepted' }).eq('id', requestId)
-    await supabase.from('round_listings').update({ spots_filled: supabase.rpc('increment', { x: 1 }) }).eq('id', listingId)
+    const { data: listing } = await supabase
+      .from('round_listings').select('spots_total, spots_filled').eq('id', listingId).single()
+    if (listing) {
+      const newFilled = listing.spots_filled + 1
+      const isFull = newFilled >= listing.spots_total
+      await supabase.from('round_listings')
+        .update({ spots_filled: newFilled, ...(isFull && { is_active: false }) })
+        .eq('id', listingId)
+    }
     fetchGames()
   }
 
