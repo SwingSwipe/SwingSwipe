@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../supabase'
 import Avatar from '../components/Avatar'
 import Modal from '../components/Modal'
+import ConfirmSheet from '../components/ConfirmSheet'
 import CourseInput from '../components/CourseInput'
 
 const VIBE_LABELS = {
@@ -372,6 +373,7 @@ export default function Games({ user }) {
   const [showPost, setShowPost] = useState(false)
   const [chatGame, setChatGame] = useState(null)
   const [rateGame, setRateGame] = useState(null)
+  const [confirmDelete, setConfirmDelete] = useState(null)
   const [ratePlayers, setRatePlayers] = useState([])
 
   useEffect(() => { fetchGames() }, [])
@@ -427,8 +429,9 @@ export default function Games({ user }) {
     fetchGames()
   }
 
-  const handleDeleteGame = async (gameId) => {
-    if (!window.confirm('Delete this game? This cannot be undone.')) return
+  const handleDeleteGame = async () => {
+    const gameId = confirmDelete
+    setConfirmDelete(null)
     await supabase.from('round_requests').delete().eq('listing_id', gameId)
     await supabase.from('round_listings').delete().eq('id', gameId)
     fetchGames()
@@ -552,7 +555,7 @@ export default function Games({ user }) {
                             ⭐ Rate players
                           </button>
                         ) : (
-                          <button onClick={() => handleDeleteGame(game.id)} className="flex-1 py-2 bg-red-50 rounded-[8px] text-sm font-semibold text-red-500">
+                          <button onClick={() => setConfirmDelete(game.id)} className="flex-1 py-2 bg-red-50 rounded-[8px] text-sm font-semibold text-red-500">
                             Delete game
                           </button>
                         )}
@@ -615,6 +618,15 @@ export default function Games({ user }) {
 
       {showPost && <PostGameModal userId={user.id} onClose={() => setShowPost(false)} onPosted={fetchGames} />}
       {chatGame && <GameChat listing={chatGame} currentUserId={user.id} onClose={() => setChatGame(null)} />}
+      {confirmDelete && (
+        <ConfirmSheet
+          title="Delete this game?"
+          message="All requests and chat messages will be removed. This cannot be undone."
+          confirmLabel="Delete game"
+          onConfirm={handleDeleteGame}
+          onCancel={() => setConfirmDelete(null)}
+        />
+      )}
       {rateGame && (
         <RatePlayersModal
           listing={rateGame}
