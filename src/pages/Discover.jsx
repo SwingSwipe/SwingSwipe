@@ -467,18 +467,20 @@ export default function Discover({ user, userProfile }) {
   const handleWithdraw = async () => {
     const game = confirmWithdraw
     setConfirmWithdraw(null)
-    await supabase.from('round_requests').delete()
-      .eq('listing_id', game.id).eq('requester_id', user.id)
-    await supabase.from('round_listings')
-      .update({ spots_filled: Math.max(0, game.spots_filled - 1) })
-      .eq('id', game.id)
+    // Optimistically update UI immediately
+    setRequestStatus(s => { const next = { ...s }; delete next[game.id]; return next })
+    // Post chat message first while still an accepted player (RLS may block after deletion)
     const firstName = userProfile?.name?.split(' ')[0] || 'A player'
     await supabase.from('round_messages').insert({
       listing_id: game.id,
       user_id: user.id,
       content: `📢 ${firstName} has withdrawn — a spot is now open.`,
     })
-    setRequestStatus(s => { const next = { ...s }; delete next[game.id]; return next })
+    await supabase.from('round_requests').delete()
+      .eq('listing_id', game.id).eq('requester_id', user.id)
+    await supabase.from('round_listings')
+      .update({ spots_filled: Math.max(0, game.spots_filled - 1) })
+      .eq('id', game.id)
     fetchGames()
   }
 
