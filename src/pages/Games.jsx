@@ -368,6 +368,7 @@ export default function Games({ user }) {
   const [tab, setTab] = useState('discover')
   const [myGames, setMyGames] = useState([])
   const [joinedGames, setJoinedGames] = useState([])
+  const [invites, setInvites] = useState([])
   const [pendingRequests, setPendingRequests] = useState({})
   const [loading, setLoading] = useState(true)
   const [showPost, setShowPost] = useState(false)
@@ -413,8 +414,16 @@ export default function Games({ user }) {
       .eq('requester_id', user.id)
       .eq('status', 'accepted')
 
+    // Invites sent to me
+    const { data: inviteRows } = await supabase
+      .from('round_requests')
+      .select('*, round_listings(*, profiles!round_listings_host_id_fkey(name, avatar_url))')
+      .eq('requester_id', user.id)
+      .eq('status', 'invited')
+
     setMyGames(mine || [])
     setJoinedGames(joined?.map(j => j.round_listings).filter(Boolean) || [])
+    setInvites(inviteRows || [])
     setLoading(false)
   }
 
@@ -426,6 +435,19 @@ export default function Games({ user }) {
 
   const handleDecline = async (requestId) => {
     await supabase.from('round_requests').update({ status: 'declined' }).eq('id', requestId)
+    fetchGames()
+  }
+
+  const handleAcceptInvite = async (invite) => {
+    await supabase.from('round_requests').update({ status: 'accepted' }).eq('id', invite.id)
+    await supabase.from('round_listings')
+      .update({ spots_filled: (invite.round_listings.spots_filled || 1) + 1 })
+      .eq('id', invite.listing_id)
+    fetchGames()
+  }
+
+  const handleDeclineInvite = async (inviteId) => {
+    await supabase.from('round_requests').delete().eq('id', inviteId)
     fetchGames()
   }
 
@@ -457,6 +479,7 @@ export default function Games({ user }) {
   const isPast = (dateStr) => new Date(dateStr + 'T23:59:59') < new Date()
 
   const totalPending = Object.values(pendingRequests).reduce((a, b) => a + b.length, 0)
+  const totalInvites = invites.length
 
   return (
     <div className="flex flex-col h-full">
@@ -481,8 +504,9 @@ export default function Games({ user }) {
             {totalPending > 0 && <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center font-bold">{totalPending}</span>}
           </button>
           <button onClick={() => setTab('joined')}
-            className={`pill flex-1 py-1.5 font-bold ${tab === 'joined' ? 'bg-white text-[#1D9E75]' : 'bg-white/20 text-white'}`}>
+            className={`pill flex-1 py-1.5 font-bold relative ${tab === 'joined' ? 'bg-white text-[#1D9E75]' : 'bg-white/20 text-white'}`}>
             Joined
+            {totalInvites > 0 && <span className="absolute -top-1 -right-1 w-4 h-4 bg-orange-500 text-white text-[10px] rounded-full flex items-center justify-center font-bold">{totalInvites}</span>}
           </button>
         </div>
       </div>
@@ -568,13 +592,43 @@ export default function Games({ user }) {
           </>
         ) : (
           <>
-            {joinedGames.length === 0 ? (
+            {invites.length > 0 && (
+              <div className="mb-4">
+                <p className="section-label mb-2">🎉 You've been invited</p>
+                {invites.map(invite => {
+                  const game = invite.round_listings
+                  if (!game) return null
+                  return (
+                    <div key={invite.id} className="card mb-3 overflow-hidden border-2 border-orange-200">
+                      <div className="h-1.5 bg-orange-400" />
+                      <div className="p-4">
+                        <p className="font-bold">{game.course_name}</p>
+                        <p className="text-xs text-gray-400 mt-0.5 mb-3">
+                          {new Date(game.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                          {game.tee_time && ` · ${game.tee_time.slice(0, 5)}`}
+                          {game.profiles?.name && ` · Invited by ${game.profiles.name.split(' ')[0]}`}
+                        </p>
+                        <div className="flex gap-2">
+                          <button onClick={() => handleDeclineInvite(invite.id)} className="flex-1 py-2 bg-red-50 rounded-[8px] text-sm font-semibold text-red-500">
+                            Decline
+                          </button>
+                          <button onClick={() => handleAcceptInvite(invite)} className="flex-1 py-2 bg-[#1D9E75] rounded-[8px] text-sm font-semibold text-white">
+                            Accept ✓
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+            {joinedGames.length === 0 && invites.length === 0 ? (
               <div className="text-center py-14">
                 <p className="text-5xl mb-3">🏌️</p>
                 <p className="font-bold text-gray-700 text-lg">No games joined yet</p>
                 <p className="text-sm text-gray-400 mt-2">Find open games in the Discover tab.</p>
               </div>
-            ) : (
+            ) : joinedGames.length > 0 ? (
               joinedGames.map(game => (
                 <div key={game.id} className="card mb-3 overflow-hidden">
                   <div className="h-1.5 bg-[#1D9E75]" />
@@ -603,7 +657,7 @@ export default function Games({ user }) {
                   </div>
                 </div>
               ))
-            )}
+            ) : null}
           </>
         )}
       </div>

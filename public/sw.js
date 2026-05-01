@@ -15,6 +15,23 @@ self.addEventListener('activate', e => {
   self.clients.claim()
 })
 
+self.addEventListener('push', e => {
+  const data = e.data?.json() || {}
+  e.waitUntil(
+    self.registration.showNotification(data.title || 'SwingSwipe ⛳', {
+      body: data.body || '',
+      icon: '/icon-192.png',
+      badge: '/icon-192.png',
+      data,
+    })
+  )
+})
+
+self.addEventListener('notificationclick', e => {
+  e.notification.close()
+  e.waitUntil(clients.openWindow('/'))
+})
+
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return
   if (e.request.url.includes('supabase') || e.request.url.includes('anthropic')) return

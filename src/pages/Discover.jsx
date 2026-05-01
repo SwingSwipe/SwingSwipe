@@ -254,7 +254,71 @@ function GameCard({ game, currentUserId, userHandicap, onRequest, onCancel, onWi
   )
 }
 
-function PlayerModal({ player, currentUserId, onClose, onMessage }) {
+function InviteToGameModal({ host, invitee, onClose }) {
+  const [games, setGames] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [sent, setSent] = useState({})
+
+  useEffect(() => {
+    supabase.from('round_listings')
+      .select('*').eq('host_id', host.id).eq('is_active', true)
+      .gte('date', new Date().toISOString().split('T')[0])
+      .order('date', { ascending: true })
+      .then(({ data }) => { setGames(data || []); setLoading(false) })
+  }, [])
+
+  const sendInvite = async (game) => {
+    setSent(s => ({ ...s, [game.id]: true }))
+    await supabase.from('round_requests').insert({
+      listing_id: game.id,
+      requester_id: invitee.id,
+      invited_by: host.id,
+      status: 'invited',
+    })
+  }
+
+  return (
+    <Modal>
+    <>
+    <div className="fixed inset-0 bg-black/60 z-[70]" onClick={onClose} />
+    <div className="fixed bottom-0 left-0 right-0 z-[70] bg-white rounded-t-[24px] p-6 max-h-[80vh] overflow-y-auto">
+      <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-4" />
+      <h3 className="font-black text-lg mb-1">Invite {invitee.name?.split(' ')[0]}</h3>
+      <p className="text-sm text-gray-400 mb-4">Pick one of your open games</p>
+      {loading ? (
+        <div className="flex justify-center py-8">
+          <div className="w-5 h-5 border-2 border-[#1D9E75] border-t-transparent rounded-full animate-spin" />
+        </div>
+      ) : games.length === 0 ? (
+        <p className="text-center text-sm text-gray-400 py-8">No open games — post one in the Games tab first.</p>
+      ) : (
+        games.map(game => (
+          <div key={game.id} className="flex items-center justify-between py-3 border-b border-gray-50 last:border-0">
+            <div>
+              <p className="font-semibold text-sm">{game.course_name}</p>
+              <p className="text-xs text-gray-400">
+                {new Date(game.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                {game.tee_time && ` · ${game.tee_time.slice(0, 5)}`}
+              </p>
+            </div>
+            <button
+              onClick={() => sendInvite(game)}
+              disabled={sent[game.id]}
+              className={`px-4 py-1.5 rounded-[8px] text-sm font-bold transition-all ${sent[game.id] ? 'bg-green-100 text-green-700' : 'bg-[#1D9E75] text-white active:opacity-80'}`}
+            >
+              {sent[game.id] ? '✓ Sent' : 'Invite'}
+            </button>
+          </div>
+        ))
+      )}
+      <button onClick={onClose} className="w-full text-center text-sm text-gray-400 mt-4">Done</button>
+    </div>
+    </>
+    </Modal>
+  )
+}
+
+function PlayerModal({ player, currentUserId, onClose, onInvite }) {
   return (
     <Modal>
     <>
@@ -316,8 +380,8 @@ function PlayerModal({ player, currentUserId, onClose, onMessage }) {
         )}
 
         {player.id !== currentUserId && (
-          <button onClick={() => onMessage(player)} className="btn-primary">
-            Invite to a game
+          <button onClick={() => onInvite(player)} className="btn-primary">
+            Invite to a game ⛳
           </button>
         )}
       </div>
@@ -335,8 +399,18 @@ export default function Discover({ user, userProfile }) {
   const [viewingProfile, setViewingProfile] = useState(null)
   const [requestStatus, setRequestStatus] = useState({})
   const [gamePlayers, setGamePlayers] = useState({})
-  const [filters, setFilters] = useState({ handicap: 'all', pace: 'all', holes: 'all', gamePace: 'all' })
+  const [filters, setFilters] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('discover_filters')) || { handicap: 'all', pace: 'all', holes: 'all', gamePace: 'all' } }
+    catch { return { handicap: 'all', pace: 'all', holes: 'all', gamePace: 'all' } }
+  })
   const [confirmWithdraw, setConfirmWithdraw] = useState(null)
+  const [invitePlayer, setInvitePlayer] = useState(null)
+
+  const updateFilters = (fn) => setFilters(f => {
+    const next = fn(f)
+    localStorage.setItem('discover_filters', JSON.stringify(next))
+    return next
+  })
 
   useEffect(() => {
     if (mode === 'players') fetchPlayers()
@@ -486,7 +560,7 @@ export default function Discover({ user, userProfile }) {
 
   const handleInvite = (player) => {
     setSelectedPlayer(null)
-    // Future: open a game invite modal
+    setInvitePlayer(player)
   }
 
   return (
@@ -523,7 +597,7 @@ export default function Discover({ user, userProfile }) {
           {['all', '90s', '80s', '70s', 'scratch', 'beginner'].map(h => (
             <button
               key={h}
-              onClick={() => setFilters(f => ({ ...f, handicap: h }))}
+              onClick={() => updateFilters(f => ({ ...f, handicap: h }))}
               className={`pill whitespace-nowrap text-xs py-1 ${filters.handicap === h ? 'pill-active' : 'pill-inactive'}`}
             >
               {h === 'all' ? 'All levels' : HANDICAP_LABELS[h]}
@@ -536,14 +610,14 @@ export default function Discover({ user, userProfile }) {
       {mode === 'games' && (
         <div className="bg-[#1D9E75]/5 px-4 py-2 flex gap-2 overflow-x-auto no-scrollbar border-b border-[#1D9E75]/10">
           {[['all', 'Any holes'], ['9', '9 holes'], ['18', '18 holes']].map(([val, label]) => (
-            <button key={val} onClick={() => setFilters(f => ({ ...f, holes: val }))}
+            <button key={val} onClick={() => updateFilters(f => ({ ...f, holes: val }))}
               className={`pill whitespace-nowrap text-xs py-1 ${filters.holes === val ? 'pill-active' : 'pill-inactive'}`}>
               {label}
             </button>
           ))}
           <div className="w-px bg-gray-200 shrink-0 self-stretch my-0.5" />
           {[['all', 'Any pace'], ['quick', '⚡ Quick'], ['normal', '⏱ Normal'], ['relaxed', '☕ Relaxed']].map(([val, label]) => (
-            <button key={val} onClick={() => setFilters(f => ({ ...f, gamePace: val }))}
+            <button key={val} onClick={() => updateFilters(f => ({ ...f, gamePace: val }))}
               className={`pill whitespace-nowrap text-xs py-1 ${filters.gamePace === val ? 'pill-active' : 'pill-inactive'}`}>
               {label}
             </button>
@@ -605,7 +679,14 @@ export default function Discover({ user, userProfile }) {
           player={selectedPlayer}
           currentUserId={user.id}
           onClose={() => setSelectedPlayer(null)}
-          onMessage={handleInvite}
+          onInvite={handleInvite}
+        />
+      )}
+      {invitePlayer && (
+        <InviteToGameModal
+          host={user}
+          invitee={invitePlayer}
+          onClose={() => setInvitePlayer(null)}
         />
       )}
       {viewingProfile && (
