@@ -24,6 +24,18 @@ const SKILL_LABELS = {
   scratch: 'Scratch',
 }
 
+const TRANSPORT_LABELS = {
+  cart: '🛺 Cart',
+  walk: '🚶 Walk',
+  either: '🔄 Cart or walk',
+}
+
+const PACE_LABELS = {
+  quick: '⚡ Quick (~3h)',
+  normal: '⏱ Normal (~4h)',
+  relaxed: '☕ Relaxed (4.5h+)',
+}
+
 function formatDate(dateStr) {
   const d = new Date(dateStr + 'T00:00:00')
   return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
@@ -37,7 +49,7 @@ function formatTime(timeStr) {
   return `${h12}:${m} ${ampm}`
 }
 
-export default function RoundCard({ listing, onJoin, onCancel, onHostTap, currentUserId, onChat, requested }) {
+export default function RoundCard({ listing, onJoin, onCancel, currentUserId, onChat, requested }) {
   const spotsLeft = listing.spots_total - listing.spots_filled
   const isHost = listing.host_id === currentUserId
   const isFull = spotsLeft === 0
@@ -58,16 +70,32 @@ export default function RoundCard({ listing, onJoin, onCancel, onHostTap, curren
         </div>
       </div>
 
-      <button
-        onClick={() => !isHost && onHostTap?.(listing.host_id)}
-        className={`flex items-center gap-2 mb-3 ${!isHost && onHostTap ? 'active:opacity-70' : ''}`}
-      >
+      <div className="flex items-center gap-2 mb-3">
         <Avatar name={listing.profiles?.name} url={listing.profiles?.avatar_url} size={7} />
         <span className="text-sm text-gray-600">{listing.profiles?.name || 'Unknown'}</span>
-        {!isHost && <span className="text-xs text-gray-400">· Host</span>}
-      </button>
+      </div>
 
       <div className="flex flex-wrap gap-1.5 mb-3">
+        {listing.holes && (
+          <span className="pill bg-gray-100 text-gray-600 text-xs">
+            {listing.holes} holes
+          </span>
+        )}
+        {listing.transport && listing.transport !== 'either' && (
+          <span className="pill bg-gray-100 text-gray-600 text-xs">
+            {TRANSPORT_LABELS[listing.transport] || listing.transport}
+          </span>
+        )}
+        {listing.transport === 'either' && (
+          <span className="pill bg-gray-100 text-gray-600 text-xs">
+            {TRANSPORT_LABELS.either}
+          </span>
+        )}
+        {listing.pace && (
+          <span className="pill bg-orange-50 text-orange-600 text-xs">
+            {PACE_LABELS[listing.pace] || listing.pace}
+          </span>
+        )}
         {listing.vibe && (
           <span className={`pill text-xs ${VIBE_COLORS[listing.vibe] || 'bg-gray-100 text-gray-600'}`}>
             {VIBE_LABELS[listing.vibe] || listing.vibe}
