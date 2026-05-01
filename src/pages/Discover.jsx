@@ -18,6 +18,18 @@ const PACE_LABELS = {
   relaxed: '😌 Relaxed',
 }
 
+const GAME_PACE_LABELS = {
+  quick: '⚡ Quick (~3h)',
+  normal: '⏱ Normal (~4h)',
+  relaxed: '☕ Relaxed (4.5h+)',
+}
+
+const TRANSPORT_LABELS = {
+  cart: '🛺 Cart',
+  walk: '🚶 Walk',
+  either: '🔄 Either',
+}
+
 const VIBE_LABELS = {
   bread_game: '🍞 Bread game',
   casual: '😊 Casual',
@@ -91,7 +103,7 @@ const SKILL_MEETS = {
   scratch:  new Set(['all_welcome', 'sub_100', 'sub_90', 'sub_80', 'scratch']),
 }
 
-function GameCard({ game, currentUserId, userHandicap, onRequest, onCancel, onHostTap, requestStatus, acceptedPlayers }) {
+function GameCard({ game, currentUserId, userHandicap, onRequest, onCancel, onWithdraw, onHostTap, requestStatus, acceptedPlayers }) {
   const spotsLeft = game.spots_total - game.spots_filled
   const isOwn = game.host_id === currentUserId
   const status = requestStatus[game.id]
@@ -174,6 +186,18 @@ function GameCard({ game, currentUserId, userHandicap, onRequest, onCancel, onHo
           </div>
         )}
 
+        <div className="flex flex-wrap gap-1.5 mb-3">
+          {game.holes && (
+            <span className="pill bg-gray-100 text-gray-600 text-xs py-0.5">{game.holes} holes</span>
+          )}
+          {game.transport && (
+            <span className="pill bg-gray-100 text-gray-600 text-xs py-0.5">{TRANSPORT_LABELS[game.transport] || game.transport}</span>
+          )}
+          {game.pace && (
+            <span className="pill bg-orange-50 text-orange-600 text-xs py-0.5">{GAME_PACE_LABELS[game.pace] || game.pace}</span>
+          )}
+        </div>
+
         {game.skill_range && game.skill_range !== 'all_welcome' && (
           <p className={`text-xs mb-3 ${mismatch ? 'text-orange-500 font-semibold' : 'text-gray-400'}`}>
             {mismatch ? '⚠️' : '🎯'} {game.skill_range.replace('_', ' ').replace('sub', 'Sub-')} players
@@ -185,8 +209,20 @@ function GameCard({ game, currentUserId, userHandicap, onRequest, onCancel, onHo
           <p className="text-xs text-gray-500 italic mb-3">"{game.notes}"</p>
         )}
 
-        {!isOwn && spotsLeft > 0 && (
-          status === 'pending' ? (
+        {!isOwn && (
+          status === 'accepted' ? (
+            <div className="flex gap-2">
+              <div className="flex-1 py-2.5 rounded-[10px] text-sm font-bold bg-green-100 text-green-700 text-center">
+                ✓ You're in!
+              </div>
+              <button
+                onClick={() => onWithdraw(game)}
+                className="px-4 py-2.5 rounded-[10px] text-sm font-bold bg-red-50 text-red-500 active:opacity-80"
+              >
+                Withdraw
+              </button>
+            </div>
+          ) : status === 'pending' ? (
             <div className="flex gap-2">
               <div className="flex-1 py-2.5 rounded-[10px] text-sm font-bold bg-gray-100 text-gray-500 text-center">
                 ✓ Request sent
@@ -198,17 +234,15 @@ function GameCard({ game, currentUserId, userHandicap, onRequest, onCancel, onHo
                 Cancel
               </button>
             </div>
-          ) : (
+          ) : spotsLeft > 0 ? (
             <button
-              onClick={() => status !== 'accepted' && onRequest(game)}
-              disabled={status === 'accepted'}
-              className={`w-full py-2.5 rounded-[10px] text-sm font-bold transition-all ${
-                status === 'accepted' ? 'bg-green-100 text-green-700' :
-                'bg-[#1D9E75] text-white active:opacity-80'
-              }`}
+              onClick={() => onRequest(game)}
+              className="w-full py-2.5 rounded-[10px] text-sm font-bold bg-[#1D9E75] text-white active:opacity-80"
             >
-              {status === 'accepted' ? '✓ You\'re in!' : 'Request to join →'}
+              Request to join →
             </button>
+          ) : (
+            <div className="w-full py-2.5 rounded-[10px] text-sm font-bold bg-gray-100 text-gray-400 text-center">Full</div>
           )
         )}
         {isOwn && (
@@ -300,7 +334,7 @@ export default function Discover({ user, userProfile }) {
   const [viewingProfile, setViewingProfile] = useState(null)
   const [requestStatus, setRequestStatus] = useState({})
   const [gamePlayers, setGamePlayers] = useState({})
-  const [filters, setFilters] = useState({ handicap: 'all', pace: 'all' })
+  const [filters, setFilters] = useState({ handicap: 'all', pace: 'all', holes: 'all', gamePace: 'all' })
 
   useEffect(() => {
     if (mode === 'players') fetchPlayers()
@@ -333,13 +367,18 @@ export default function Discover({ user, userProfile }) {
 
   const fetchGames = async () => {
     setLoading(true)
-    const { data } = await supabase
+    let query = supabase
       .from('round_listings')
       .select('*, profiles(id, name, avatar_url, pace, cart_or_walk, handicap_range)')
       .eq('is_active', true)
       .gte('date', new Date().toISOString().split('T')[0])
       .order('date', { ascending: true })
       .order('tee_time', { ascending: true })
+
+    if (filters.holes !== 'all') query = query.eq('holes', parseInt(filters.holes))
+    if (filters.gamePace !== 'all') query = query.eq('pace', filters.gamePace)
+
+    const { data } = await query
 
     if (data?.length) {
       const ids = data.map(g => g.id)
@@ -423,6 +462,17 @@ export default function Discover({ user, userProfile }) {
     }
   }
 
+  const handleWithdraw = async (game) => {
+    if (!window.confirm('Withdraw from this game?')) return
+    await supabase.from('round_requests').delete()
+      .eq('listing_id', game.id).eq('requester_id', user.id)
+    await supabase.from('round_listings')
+      .update({ spots_filled: Math.max(0, game.spots_filled - 1) })
+      .eq('id', game.id)
+    setRequestStatus(s => { const next = { ...s }; delete next[game.id]; return next })
+    fetchGames()
+  }
+
   const handleInvite = (player) => {
     setSelectedPlayer(null)
     // Future: open a game invite modal
@@ -471,6 +521,25 @@ export default function Discover({ user, userProfile }) {
         </div>
       )}
 
+      {/* Filters for games */}
+      {mode === 'games' && (
+        <div className="bg-[#1D9E75]/5 px-4 py-2 flex gap-2 overflow-x-auto no-scrollbar border-b border-[#1D9E75]/10">
+          {[['all', 'Any holes'], ['9', '9 holes'], ['18', '18 holes']].map(([val, label]) => (
+            <button key={val} onClick={() => setFilters(f => ({ ...f, holes: val }))}
+              className={`pill whitespace-nowrap text-xs py-1 ${filters.holes === val ? 'pill-active' : 'pill-inactive'}`}>
+              {label}
+            </button>
+          ))}
+          <div className="w-px bg-gray-200 shrink-0 self-stretch my-0.5" />
+          {[['all', 'Any pace'], ['quick', '⚡ Quick'], ['normal', '⏱ Normal'], ['relaxed', '☕ Relaxed']].map(([val, label]) => (
+            <button key={val} onClick={() => setFilters(f => ({ ...f, gamePace: val }))}
+              className={`pill whitespace-nowrap text-xs py-1 ${filters.gamePace === val ? 'pill-active' : 'pill-inactive'}`}>
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
+
       <div className="flex-1 overflow-y-auto px-4 py-4 pb-24">
         {loading ? (
           <div className="flex items-center justify-center h-40">
@@ -509,6 +578,7 @@ export default function Discover({ user, userProfile }) {
                   userHandicap={userProfile?.handicap_range}
                   onRequest={handleRequest}
                   onCancel={handleCancelRequest}
+                  onWithdraw={handleWithdraw}
                   onHostTap={id => setViewingProfile(id)}
                   requestStatus={requestStatus}
                   acceptedPlayers={gamePlayers[g.id]}

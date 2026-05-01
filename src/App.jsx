@@ -100,6 +100,13 @@ export default function App() {
     return () => subscription.unsubscribe()
   }, [])
 
+  // Request notification permission once logged in
+  useEffect(() => {
+    if (user && 'Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission()
+    }
+  }, [user])
+
   // Listen for new game requests on my listings
   useEffect(() => {
     if (!user) return
@@ -109,9 +116,37 @@ export default function App() {
         event: 'INSERT', schema: 'public', table: 'round_requests',
       }, async (payload) => {
         const { data: listing } = await supabase
-          .from('round_listings').select('host_id').eq('id', payload.new.listing_id).single()
+          .from('round_listings').select('host_id, course_name').eq('id', payload.new.listing_id).single()
         if (listing?.host_id === user.id) {
           setGameNotif(n => n + 1)
+          if (Notification.permission === 'granted') {
+            new Notification('New join request ⛳', {
+              body: `Someone wants to join your game at ${listing.course_name}`,
+              icon: '/icon-192.png',
+            })
+          }
+        }
+      })
+      .subscribe()
+    return () => supabase.removeChannel(channel)
+  }, [user])
+
+  // Notify requester when their request is accepted
+  useEffect(() => {
+    if (!user) return
+    const channel = supabase
+      .channel('request-accepted-notif')
+      .on('postgres_changes', {
+        event: 'UPDATE', schema: 'public', table: 'round_requests',
+        filter: `requester_id=eq.${user.id}`,
+      }, async (payload) => {
+        if (payload.new.status === 'accepted' && Notification.permission === 'granted') {
+          const { data: listing } = await supabase
+            .from('round_listings').select('course_name').eq('id', payload.new.listing_id).single()
+          new Notification("You're in! 🎉", {
+            body: `Your request to join ${listing?.course_name || 'the game'} was accepted`,
+            icon: '/icon-192.png',
+          })
         }
       })
       .subscribe()
