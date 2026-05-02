@@ -35,7 +35,7 @@ const STEPS = [
 ]
 
 export default function Onboarding({ user, onComplete }) {
-  const [step, setStep] = useState(1)
+  const [step, setStep] = useState(0)
   const [saving, setSaving] = useState(false)
   const [data, setData] = useState({
     name: '',
@@ -89,6 +89,36 @@ export default function Onboarding({ user, onComplete }) {
 
   const currentStep = STEPS[step - 1]
 
+  if (step === 0) {
+    return (
+      <div className="min-h-screen bg-[#1D9E75] flex flex-col items-center justify-between px-6 pt-16 pb-10">
+        <div className="flex-1 flex flex-col items-center justify-center text-center">
+          <div className="w-20 h-20 bg-white/20 rounded-[24px] flex items-center justify-center text-5xl mb-6">⛳</div>
+          <h1 className="text-white text-3xl font-black mb-3">SwingSwipe</h1>
+          <p className="text-white/80 text-lg font-semibold mb-4">Find golfers to play with,<br />right near you.</p>
+          <div className="space-y-3 mt-4 w-full max-w-xs">
+            {[
+              ['🏌️', 'Browse open games and join in seconds'],
+              ['👥', 'Post your tee time and fill your group'],
+              ['⭐', 'Rate rounds and build your reputation'],
+            ].map(([emoji, text]) => (
+              <div key={text} className="flex items-center gap-3 bg-white/15 rounded-[14px] px-4 py-3">
+                <span className="text-xl">{emoji}</span>
+                <p className="text-white text-sm font-medium text-left">{text}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+        <button
+          onClick={() => setStep(1)}
+          className="w-full max-w-xs py-4 bg-white rounded-[14px] text-[#1D9E75] font-black text-base active:opacity-80"
+        >
+          Get started →
+        </button>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-[#f0f2f0] flex flex-col">
       {/* Progress bar */}
@@ -140,7 +170,8 @@ export default function Onboarding({ user, onComplete }) {
               value={data.home_course}
               onChange={v => set('home_course', v)}
             />
-            <p className="text-xs text-gray-400">Used to find rounds near you. You can skip this and add it later.</p>
+            <p className="text-xs text-gray-400">Used to find rounds near you.</p>
+            <button onClick={next} className="text-xs text-[#1D9E75] font-semibold self-start">Skip for now →</button>
           </div>
         )}
 
