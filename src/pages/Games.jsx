@@ -231,6 +231,7 @@ function PostGameModal({ userId, onClose, onPosted }) {
     course_name: '', date: '', tee_time: '',
     spots_total: 3, holes: '18', transport: 'either', pace: 'normal',
     vibe: 'casual', skill_range: 'all_welcome', notes: '',
+    lat: null, lng: null,
   })
   const [saving, setSaving] = useState(false)
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
@@ -252,6 +253,8 @@ function PostGameModal({ userId, onClose, onPosted }) {
       skill_range: form.skill_range,
       notes: form.notes || null,
       is_active: true,
+      lat: form.lat,
+      lng: form.lng,
     })
     setSaving(false)
     if (!error) { onPosted(); onClose() }
@@ -267,7 +270,7 @@ function PostGameModal({ userId, onClose, onPosted }) {
           <h2 className="text-base font-black mb-3">Post a game ⛳</h2>
 
           <div className="space-y-3">
-            <CourseInput placeholder="Course name" value={form.course_name} onChange={v => set('course_name', v)} />
+            <CourseInput placeholder="Course name" value={form.course_name} onChange={v => set('course_name', v)} onSelect={c => setForm(f => ({ ...f, course_name: c.name, lat: c.lat, lng: c.lng }))} />
             <div className="grid grid-cols-2 gap-2">
               <div>
                 <label className="text-xs text-gray-500 mb-1 block">Date</label>

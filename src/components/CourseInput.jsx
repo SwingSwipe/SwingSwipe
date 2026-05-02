@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 
-export default function CourseInput({ value, onChange, placeholder = 'Course name' }) {
+export default function CourseInput({ value, onChange, onSelect, placeholder = 'Course name' }) {
   const [query, setQuery] = useState(value || '')
   const [results, setResults] = useState([])
   const [loading, setLoading] = useState(false)
@@ -38,8 +38,9 @@ export default function CourseInput({ value, onChange, placeholder = 'Course nam
         .filter(f => f.properties?.name)
         .map(f => {
           const p = f.properties
+          const [lon, lat] = f.geometry.coordinates
           const location = [p.city, p.state, p.country].filter(Boolean).join(', ')
-          return { name: p.name, location }
+          return { name: p.name, location, lat, lng: lon }
         })
       setResults(courses)
       setOpen(courses.length > 0)
@@ -60,6 +61,7 @@ export default function CourseInput({ value, onChange, placeholder = 'Course nam
   const handleSelect = (course) => {
     setQuery(course.name)
     onChange(course.name)
+    onSelect?.({ name: course.name, lat: course.lat, lng: course.lng })
     setResults([])
     setOpen(false)
   }

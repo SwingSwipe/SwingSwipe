@@ -121,6 +121,7 @@ function GameCard({ game, currentUserId, userHandicap, onRequest, onCancel, onWi
             <p className="text-xs text-gray-400 mt-0.5">
               {new Date(game.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
               {game.tee_time && ` · ${game.tee_time.slice(0, 5)}`}
+              {game.distance != null && ` · 📍 ${game.distance} mi`}
             </p>
           </div>
           <div className="text-right">
@@ -400,11 +401,12 @@ export default function Discover({ user, userProfile }) {
   const [requestStatus, setRequestStatus] = useState({})
   const [gamePlayers, setGamePlayers] = useState({})
   const [filters, setFilters] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('discover_filters')) || { handicap: 'all', pace: 'all', holes: 'all', gamePace: 'all' } }
-    catch { return { handicap: 'all', pace: 'all', holes: 'all', gamePace: 'all' } }
+    try { return JSON.parse(localStorage.getItem('discover_filters')) || { handicap: 'all', pace: 'all', holes: 'all', gamePace: 'all', distance: 'all' } }
+    catch { return { handicap: 'all', pace: 'all', holes: 'all', gamePace: 'all', distance: 'all' } }
   })
   const [confirmWithdraw, setConfirmWithdraw] = useState(null)
   const [invitePlayer, setInvitePlayer] = useState(null)
+  const [userLocation, setUserLocation] = useState(null)
 
   const updateFilters = (fn) => setFilters(f => {
     const next = fn(f)
@@ -413,9 +415,18 @@ export default function Discover({ user, userProfile }) {
   })
 
   useEffect(() => {
+    if ('geolocation' in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        pos => setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+        () => {}
+      )
+    }
+  }, [])
+
+  useEffect(() => {
     if (mode === 'players') fetchPlayers()
     else fetchGames()
-  }, [mode, filters])
+  }, [mode, filters, userLocation])
 
   const fetchPlayers = async () => {
     setLoading(true)
@@ -441,6 +452,14 @@ export default function Discover({ user, userProfile }) {
     setLoading(false)
   }
 
+  const haversine = (lat1, lng1, lat2, lng2) => {
+    const R = 3958.8
+    const dLat = (lat2 - lat1) * Math.PI / 180
+    const dLng = (lng2 - lng1) * Math.PI / 180
+    const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+  }
+
   const fetchGames = async () => {
     setLoading(true)
     let query = supabase
@@ -454,7 +473,24 @@ export default function Discover({ user, userProfile }) {
     if (filters.holes !== 'all') query = query.eq('holes', parseInt(filters.holes))
     if (filters.gamePace !== 'all') query = query.eq('pace', filters.gamePace)
 
-    const { data } = await query
+    const { data: rawData } = await query
+
+    let data = rawData || []
+
+    if (filters.distance !== 'all' && userLocation) {
+      const miles = parseInt(filters.distance)
+      data = data.filter(g => {
+        if (!g.lat || !g.lng) return true
+        return haversine(userLocation.lat, userLocation.lng, g.lat, g.lng) <= miles
+      })
+    }
+
+    if (userLocation) {
+      data = data.map(g => ({
+        ...g,
+        distance: g.lat && g.lng ? Math.round(haversine(userLocation.lat, userLocation.lng, g.lat, g.lng)) : null,
+      }))
+    }
 
     if (data?.length) {
       const ids = data.map(g => g.id)
@@ -609,6 +645,15 @@ export default function Discover({ user, userProfile }) {
       {/* Filters for games */}
       {mode === 'games' && (
         <div className="bg-[#1D9E75]/5 px-4 py-2 flex gap-2 overflow-x-auto no-scrollbar border-b border-[#1D9E75]/10">
+          {userLocation && <>
+            {[['all', '📍 Any dist.'], ['10', '10 mi'], ['25', '25 mi'], ['50', '50 mi']].map(([val, label]) => (
+              <button key={val} onClick={() => updateFilters(f => ({ ...f, distance: val }))}
+                className={`pill whitespace-nowrap text-xs py-1 ${filters.distance === val ? 'pill-active' : 'pill-inactive'}`}>
+                {label}
+              </button>
+            ))}
+            <div className="w-px bg-gray-200 shrink-0 self-stretch my-0.5" />
+          </>}
           {[['all', 'Any holes'], ['9', '9 holes'], ['18', '18 holes']].map(([val, label]) => (
             <button key={val} onClick={() => updateFilters(f => ({ ...f, holes: val }))}
               className={`pill whitespace-nowrap text-xs py-1 ${filters.holes === val ? 'pill-active' : 'pill-inactive'}`}>
