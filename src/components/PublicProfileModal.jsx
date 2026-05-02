@@ -7,11 +7,15 @@ const HANDICAP_LABELS = { beginner: 'Beginner', '90s': '90s shooter', '80s': '80
 const PACE_LABELS = { fast: '⚡ Fast', moderate: '🚶 Moderate', relaxed: '😌 Relaxed' }
 const VIBE_LABELS = { bread_game: '🍞 Bread game', casual: '😊 Casual', competitive: '🏆 Competitive', social: '🤝 Social', practice_focused: '🎯 Practice focused' }
 
+const REPORT_REASONS = ['No-show', 'Slow play', 'Inappropriate behavior', 'Spam / fake profile', 'Other']
+
 export default function PublicProfileModal({ userId, currentUserId, onClose }) {
   const [profile, setProfile] = useState(null)
   const [reputation, setReputation] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [friendStatus, setFriendStatus] = useState('none') // none | sent | friends
+  const [friendStatus, setFriendStatus] = useState('none')
+  const [reporting, setReporting] = useState(false)
+  const [reportDone, setReportDone] = useState(false)
 
   useEffect(() => {
     const load = async () => {
@@ -39,6 +43,12 @@ export default function PublicProfileModal({ userId, currentUserId, onClose }) {
   const sendRequest = async () => {
     await supabase.from('friend_requests').insert({ from_id: currentUserId, to_id: userId, status: 'pending' })
     setFriendStatus('sent')
+  }
+
+  const submitReport = async (reason) => {
+    await supabase.from('reports').upsert({ reporter_id: currentUserId, reported_id: userId, reason }, { onConflict: 'reporter_id,reported_id' })
+    setReporting(false)
+    setReportDone(true)
   }
 
   return (
@@ -114,13 +124,43 @@ export default function PublicProfileModal({ userId, currentUserId, onClose }) {
 
               {/* Action */}
               {currentUserId !== userId && (
-                friendStatus === 'friends' ? (
-                  <div className="btn-primary opacity-60 text-center">✓ Friends</div>
-                ) : friendStatus === 'sent' ? (
-                  <div className="btn-primary opacity-60 text-center">Request sent</div>
-                ) : (
-                  <button onClick={sendRequest} className="btn-primary">+ Add to crew</button>
-                )
+                <>
+                  {friendStatus === 'friends' ? (
+                    <div className="btn-primary opacity-60 text-center">✓ Friends</div>
+                  ) : friendStatus === 'sent' ? (
+                    <div className="btn-primary opacity-60 text-center">Request sent</div>
+                  ) : (
+                    <button onClick={sendRequest} className="btn-primary">+ Add to crew</button>
+                  )}
+                  <div className="mt-4 text-center">
+                    {reportDone ? (
+                      <p className="text-xs text-gray-400">✓ Report submitted — thanks for keeping SwingSwipe safe.</p>
+                    ) : (
+                      <button onClick={() => setReporting(true)} className="text-xs text-gray-400 underline">Report this player</button>
+                    )}
+                  </div>
+                </>
+              )}
+
+              {/* Report sheet */}
+              {reporting && (
+                <div className="fixed inset-0 z-[70] flex flex-col justify-end">
+                  <div className="absolute inset-0 bg-black/50" onClick={() => setReporting(false)} />
+                  <div className="relative bg-white rounded-t-[24px] p-6 z-10">
+                    <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-4" />
+                    <h3 className="font-black text-base mb-1">Report player</h3>
+                    <p className="text-sm text-gray-400 mb-4">Select a reason</p>
+                    <div className="space-y-2">
+                      {REPORT_REASONS.map(reason => (
+                        <button key={reason} onClick={() => submitReport(reason)}
+                          className="w-full text-left px-4 py-3 rounded-[12px] bg-gray-50 text-sm font-medium active:bg-gray-100">
+                          {reason}
+                        </button>
+                      ))}
+                    </div>
+                    <button onClick={() => setReporting(false)} className="w-full text-center text-sm text-gray-400 mt-4">Cancel</button>
+                  </div>
+                </div>
               )}
             </div>
           )}
