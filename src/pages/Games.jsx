@@ -489,6 +489,18 @@ export default function Games({ user }) {
 
   const isPast = (dateStr) => new Date(dateStr + 'T23:59:59') < new Date()
 
+  const handleShare = (game) => {
+    const date = new Date(game.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+    const time = game.tee_time ? game.tee_time.slice(0, 5) : ''
+    const spots = game.spots_total - game.spots_filled
+    const text = `Join me for golf! ⛳\n${game.holes || 18} holes at ${game.course_name}\n📅 ${date}${time ? ` · ${time}` : ''}\n${spots} spot${spots !== 1 ? 's' : ''} left\n\nFind me on SwingSwipe: ${window.location.origin}`
+    if (navigator.share) {
+      navigator.share({ title: 'Join my golf game', text })
+    } else {
+      navigator.clipboard?.writeText(text)
+    }
+  }
+
   const totalPending = Object.values(pendingRequests).reduce((a, b) => a + b.length, 0)
   const totalInvites = invites.length
 
@@ -590,9 +602,14 @@ export default function Games({ user }) {
                             ⭐ Rate players
                           </button>
                         ) : (
-                          <button onClick={() => setConfirmDelete(game.id)} className="flex-1 py-2 bg-red-50 rounded-[8px] text-sm font-semibold text-red-500">
-                            Delete game
-                          </button>
+                          <>
+                            <button onClick={() => handleShare(game)} className="flex-1 py-2 bg-blue-50 rounded-[8px] text-sm font-semibold text-blue-600">
+                              🔗 Share
+                            </button>
+                            <button onClick={() => setConfirmDelete(game.id)} className="flex-1 py-2 bg-red-50 rounded-[8px] text-sm font-semibold text-red-500">
+                              Delete
+                            </button>
+                          </>
                         )}
                       </div>
                     </div>
