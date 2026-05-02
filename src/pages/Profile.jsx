@@ -234,6 +234,32 @@ export default function Profile({ user }) {
         </div>
       </div>
 
+      {/* Completeness nudge */}
+      {(() => {
+        const missing = []
+        if (!profile.avatar_url) missing.push('photo')
+        if (!profile.home_course && !profile.location) missing.push('location')
+        if (!profile.pace) missing.push('pace')
+        if (!profile.vibe_tags?.length) missing.push('vibe')
+        if (!profile.bio_prompt) missing.push('best course')
+        if (missing.length === 0) return null
+        const pct = Math.round(((5 - missing.length) / 5) * 100)
+        return (
+          <div className="mx-4 mt-3 mb-1 bg-amber-50 border border-amber-200 rounded-[14px] p-4">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-sm font-bold text-amber-800">Profile {pct}% complete</p>
+              <button onClick={() => setShowEdit(true)} className="text-xs font-bold text-amber-700 bg-amber-100 px-2.5 py-1 rounded-[8px]">
+                Finish →
+              </button>
+            </div>
+            <div className="w-full bg-amber-200 rounded-full h-1.5 mb-2">
+              <div className="bg-amber-500 h-1.5 rounded-full transition-all" style={{ width: `${pct}%` }} />
+            </div>
+            <p className="text-xs text-amber-600">Missing: {missing.join(', ')} — complete your profile to get more game requests.</p>
+          </div>
+        )
+      })()}
+
       <div className="flex-1 overflow-y-auto px-4 py-4 pb-24 space-y-4">
         {/* Stats */}
         {stats && (
