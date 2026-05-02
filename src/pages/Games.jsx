@@ -724,22 +724,15 @@ export default function Games({ user }) {
 
       {showPost && <PostGameModal userId={user.id} onClose={() => setShowPost(false)} onPosted={fetchGames} />}
       {chatGame && <GameChat listing={chatGame} currentUserId={user.id} onClose={() => setChatGame(null)} />}
-      {confirmDelete && (() => {
-        const game = myGames.find(g => g.id === confirmDelete)
-        const hasPlayers = (game?.spots_filled || 0) > 1
-        return (
-          <ConfirmSheet
-            title={hasPlayers ? 'Cancel this game?' : 'Delete this game?'}
-            message={hasPlayers
-              ? 'All accepted players will be notified that the game is cancelled.'
-              : 'This game has no players yet. It will be removed.'}
-            confirmLabel={hasPlayers ? 'Yes, cancel game' : 'Delete game'}
-            onConfirm={handleDeleteGame}
-            onCancel={() => setConfirmDelete(null)}
-          />
-        )
-      })()}
-      )}
+      {confirmDelete && <ConfirmSheet
+        title={(myGames.find(g => g.id === confirmDelete)?.spots_filled || 0) > 1 ? 'Cancel this game?' : 'Delete this game?'}
+        message={(myGames.find(g => g.id === confirmDelete)?.spots_filled || 0) > 1
+          ? 'All accepted players will be notified that the game is cancelled.'
+          : 'This game has no players yet. It will be removed.'}
+        confirmLabel={(myGames.find(g => g.id === confirmDelete)?.spots_filled || 0) > 1 ? 'Yes, cancel game' : 'Delete game'}
+        onConfirm={handleDeleteGame}
+        onCancel={() => setConfirmDelete(null)}
+      />}
       {rateGame && (
         <RatePlayersModal
           listing={rateGame}
