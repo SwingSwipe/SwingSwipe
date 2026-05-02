@@ -11,7 +11,7 @@ import ResetPassword from './pages/ResetPassword'
 import Discover from './pages/Discover'
 import Games from './pages/Games'
 import Crew from './pages/Crew'
-import Rounds from './pages/Rounds'
+import Activity from './pages/Activity'
 import Profile from './pages/Profile'
 
 function DesktopBackground() {
@@ -91,6 +91,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('discover')
   const [gameNotif, setGameNotif] = useState(0)
   const [crewNotif, setCrewNotif] = useState(0)
+  const [activityNotif, setActivityNotif] = useState(0)
   const [isPasswordRecovery, setIsPasswordRecovery] = useState(false)
 
   useEffect(() => {
@@ -141,6 +142,7 @@ export default function App() {
           .from('round_listings').select('host_id, course_name').eq('id', payload.new.listing_id).single()
         if (listing?.host_id === user.id) {
           setGameNotif(n => n + 1)
+          setActivityNotif(n => n + 1)
           if (Notification.permission === 'granted') {
             new Notification('New join request ⛳', {
               body: `Someone wants to join your game at ${listing.course_name}`,
@@ -221,7 +223,7 @@ export default function App() {
         case 'discover': return <Discover user={user} userProfile={profile} />
         case 'games':    return <Games user={user} />
         case 'crew':     return <Crew user={user} onFriendRequestsChange={setCrewNotif} />
-        case 'rounds':   return <Rounds user={user} />
+        case 'activity': return <Activity user={user} />
         case 'profile':  return <Profile user={user} />
         default:         return <Discover user={user} />
       }
@@ -236,9 +238,11 @@ export default function App() {
             setActiveTab(tab)
             if (tab === 'games') setGameNotif(0)
             if (tab === 'crew') setCrewNotif(0)
+            if (tab === 'activity') setActivityNotif(0)
           }}
           gameNotif={gameNotif}
           crewNotif={crewNotif}
+          activityNotif={activityNotif}
         />
       </>
     )
