@@ -463,10 +463,34 @@ export default function Games({ user }) {
   }
 
   const handleDeleteGame = async () => {
-    const gameId = confirmDelete
+    const game = myGames.find(g => g.id === confirmDelete)
     setConfirmDelete(null)
-    await supabase.from('round_requests').delete().eq('listing_id', gameId)
-    await supabase.from('round_listings').delete().eq('id', gameId)
+    if (!game) return
+
+    // Get accepted players to notify
+    const { data: accepted } = await supabase
+      .from('round_requests')
+      .select('requester_id')
+      .eq('listing_id', game.id)
+      .eq('status', 'accepted')
+
+    // Post cancellation message to chat (before deleting so RLS still allows it)
+    if (accepted?.length) {
+      await supabase.from('round_messages').insert({
+        listing_id: game.id,
+        user_id: user.id,
+        content: `❌ This game has been cancelled by the host.`,
+      })
+      // Push notify each accepted player
+      const title = 'Game cancelled ❌'
+      const body = `${game.course_name} on ${new Date(game.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} was cancelled by the host.`
+      for (const { requester_id } of accepted) {
+        await supabase.functions.invoke('send-push', { body: { user_id: requester_id, title, body } })
+      }
+    }
+
+    await supabase.from('round_requests').delete().eq('listing_id', game.id)
+    await supabase.from('round_listings').delete().eq('id', game.id)
     fetchGames()
   }
 
@@ -607,7 +631,7 @@ export default function Games({ user }) {
                               🔗 Share
                             </button>
                             <button onClick={() => setConfirmDelete(game.id)} className="flex-1 py-2 bg-red-50 rounded-[8px] text-sm font-semibold text-red-500">
-                              Delete
+                              Cancel game
                             </button>
                           </>
                         )}
@@ -700,14 +724,21 @@ export default function Games({ user }) {
 
       {showPost && <PostGameModal userId={user.id} onClose={() => setShowPost(false)} onPosted={fetchGames} />}
       {chatGame && <GameChat listing={chatGame} currentUserId={user.id} onClose={() => setChatGame(null)} />}
-      {confirmDelete && (
-        <ConfirmSheet
-          title="Delete this game?"
-          message="All requests and chat messages will be removed. This cannot be undone."
-          confirmLabel="Delete game"
-          onConfirm={handleDeleteGame}
-          onCancel={() => setConfirmDelete(null)}
-        />
+      {confirmDelete && (() => {
+        const game = myGames.find(g => g.id === confirmDelete)
+        const hasPlayers = (game?.spots_filled || 0) > 1
+        return (
+          <ConfirmSheet
+            title={hasPlayers ? 'Cancel this game?' : 'Delete this game?'}
+            message={hasPlayers
+              ? 'All accepted players will be notified that the game is cancelled.'
+              : 'This game has no players yet. It will be removed.'}
+            confirmLabel={hasPlayers ? 'Yes, cancel game' : 'Delete game'}
+            onConfirm={handleDeleteGame}
+            onCancel={() => setConfirmDelete(null)}
+          />
+        )
+      })()}
       )}
       {rateGame && (
         <RatePlayersModal
