@@ -109,10 +109,18 @@ export default function App() {
     if (isInstalled) return
     const dismissed = localStorage.getItem('pwa_install_dismissed')
     if (dismissed) return
+
+    // iOS Safari — no beforeinstallprompt, show manual instructions
+    const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.navigator.standalone
+    const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent)
+    if (isIOS && isSafari) {
+      setTimeout(() => setShowInstallBanner(true), 30000)
+      return
+    }
+
     const handler = (e) => {
       e.preventDefault()
       setInstallPrompt(e)
-      // Show banner after 30s of use
       setTimeout(() => setShowInstallBanner(true), 30000)
     }
     window.addEventListener('beforeinstallprompt', handler)
@@ -287,10 +295,30 @@ export default function App() {
                   <p className="text-sm text-gray-400">to your home screen</p>
                 </div>
               </div>
-              <p className="text-sm text-gray-500 mb-5">Get instant access and push notifications — no App Store needed.</p>
-              <button onClick={handleInstall} className="w-full py-3.5 bg-[#1D9E75] text-white font-bold rounded-[14px] text-base active:opacity-80 mb-2">
-                Add to Home Screen
-              </button>
+              {installPrompt ? (
+                <>
+                  <p className="text-sm text-gray-500 mb-5">Get instant access and push notifications — no App Store needed.</p>
+                  <button onClick={handleInstall} className="w-full py-3.5 bg-[#1D9E75] text-white font-bold rounded-[14px] text-base active:opacity-80 mb-2">
+                    Add to Home Screen
+                  </button>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm text-gray-500 mb-4">Install SwingSwipe for quick access and notifications:</p>
+                  <div className="space-y-3 mb-5">
+                    {[
+                      ['1', 'Tap the Share button', '⬆️', 'at the bottom of Safari'],
+                      ['2', 'Scroll down and tap', '➕', '"Add to Home Screen"'],
+                      ['3', 'Tap', '✓', '"Add" in the top right'],
+                    ].map(([num, pre, icon, post]) => (
+                      <div key={num} className="flex items-center gap-3 bg-gray-50 rounded-[12px] px-4 py-3">
+                        <span className="w-6 h-6 bg-[#1D9E75] text-white text-xs font-black rounded-full flex items-center justify-center shrink-0">{num}</span>
+                        <p className="text-sm text-gray-700">{pre} <span className="text-base">{icon}</span> {post}</p>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
               <button onClick={dismissInstall} className="w-full text-center text-sm text-gray-400 py-2">
                 Not now
               </button>
