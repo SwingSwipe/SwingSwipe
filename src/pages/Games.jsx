@@ -373,6 +373,7 @@ export default function Games({ user }) {
   const [joinedGames, setJoinedGames] = useState([])
   const [invites, setInvites] = useState([])
   const [pendingRequests, setPendingRequests] = useState({})
+  const [confirmedPlayers, setConfirmedPlayers] = useState({})
   const [loading, setLoading] = useState(true)
   const [showPost, setShowPost] = useState(false)
   const [chatGame, setChatGame] = useState(null)
@@ -413,7 +414,7 @@ export default function Games({ user }) {
     // Games I've joined
     const { data: joined } = await supabase
       .from('round_requests')
-      .select('*, round_listings(*, profiles!round_listings_host_id_fkey(name, avatar_url))')
+      .select('id, confirmed, round_listings(*, profiles!round_listings_host_id_fkey(name, avatar_url))')
       .eq('requester_id', user.id)
       .eq('status', 'accepted')
 
@@ -424,8 +425,26 @@ export default function Games({ user }) {
       .eq('requester_id', user.id)
       .eq('status', 'invited')
 
+    // Confirmation status for my hosted games
+    if (mine?.length) {
+      const upcomingIds = mine.filter(g => !isPast(g.date)).map(g => g.id)
+      if (upcomingIds.length) {
+        const { data: confReqs } = await supabase
+          .from('round_requests')
+          .select('listing_id, requester_id, confirmed, profiles(id, name)')
+          .in('listing_id', upcomingIds)
+          .eq('status', 'accepted')
+        const confMap = {}
+        confReqs?.forEach(r => {
+          if (!confMap[r.listing_id]) confMap[r.listing_id] = []
+          confMap[r.listing_id].push(r)
+        })
+        setConfirmedPlayers(confMap)
+      }
+    }
+
     setMyGames(mine || [])
-    setJoinedGames(joined?.map(j => j.round_listings).filter(Boolean) || [])
+    setJoinedGames(joined?.filter(j => j.round_listings).map(j => ({ ...j.round_listings, requestId: j.id, myConfirmed: j.confirmed })) || [])
     setInvites(inviteRows || [])
     setLoading(false)
   }
@@ -512,6 +531,28 @@ export default function Games({ user }) {
   }
 
   const isPast = (dateStr) => new Date(dateStr + 'T23:59:59') < new Date()
+  const isUpcoming = (dateStr) => {
+    const diff = new Date(dateStr + 'T00:00:00') - new Date()
+    return diff >= 0 && diff <= 48 * 3600 * 1000
+  }
+
+  const handleConfirm = async (requestId) => {
+    await supabase.from('round_requests').update({ confirmed: true }).eq('id', requestId)
+    fetchGames()
+  }
+
+  const handleRemindPlayers = async (game) => {
+    const unconfirmed = (confirmedPlayers[game.id] || []).filter(r => !r.confirmed)
+    for (const r of unconfirmed) {
+      await supabase.functions.invoke('send-push', {
+        body: {
+          user_id: r.requester_id,
+          title: "Game tomorrow — confirm you're coming ⛳",
+          body: `${game.course_name} · ${game.tee_time?.slice(0, 5) || ''}. Tap to confirm.`,
+        },
+      })
+    }
+  }
 
   const handleShare = (game) => {
     const date = new Date(game.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
@@ -631,10 +672,28 @@ export default function Games({ user }) {
                               🔗 Share
                             </button>
                             <button onClick={() => setConfirmDelete(game.id)} className="flex-1 py-2 bg-red-50 rounded-[8px] text-sm font-semibold text-red-500">
-                              Cancel game
+                              Cancel
                             </button>
                           </>
                         )}
+                        {!past && confirmedPlayers[game.id]?.length > 0 && (() => {
+                          const conf = confirmedPlayers[game.id]
+                          const confCount = conf.filter(r => r.confirmed).length
+                          const unconfCount = conf.filter(r => !r.confirmed).length
+                          return (
+                            <div className="flex items-center justify-between mt-2 px-1">
+                              <p className="text-xs text-gray-400">
+                                {confCount}/{conf.length} confirmed
+                              </p>
+                              {unconfCount > 0 && (
+                                <button onClick={() => handleRemindPlayers(game)} className="text-xs text-[#1D9E75] font-semibold">
+                                  Remind {unconfCount} player{unconfCount > 1 ? 's' : ''} →
+                                </button>
+                              )}
+                            </div>
+                          )
+                        })()}
+
                       </div>
                     </div>
                   </div>
@@ -696,6 +755,17 @@ export default function Games({ user }) {
                       {game.transport && <span className="pill text-[10px] bg-gray-100 text-gray-500 py-0.5">{TRANSPORT_LABELS[game.transport]}</span>}
                       {game.pace && <span className="pill text-[10px] bg-orange-50 text-orange-500 py-0.5">{PACE_LABELS[game.pace]}</span>}
                     </div>
+                    {isUpcoming(game.date) && !game.myConfirmed && (
+                      <div className="mb-3 p-3 bg-orange-50 rounded-[10px] flex items-center justify-between">
+                        <p className="text-xs font-semibold text-orange-700">Confirm you're coming ⛳</p>
+                        <button onClick={() => handleConfirm(game.requestId)} className="text-xs bg-orange-500 text-white font-bold px-3 py-1.5 rounded-[8px] active:opacity-80">
+                          I'm in ✓
+                        </button>
+                      </div>
+                    )}
+                    {isUpcoming(game.date) && game.myConfirmed && (
+                      <p className="text-xs text-[#1D9E75] font-semibold mb-3">✓ You've confirmed attendance</p>
+                    )}
                     <div className="flex gap-2">
                       <button onClick={() => setChatGame(game)} className="flex-1 py-2 bg-gray-100 rounded-[8px] text-sm font-semibold text-gray-700">
                         💬 Chat
