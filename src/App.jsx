@@ -93,6 +93,8 @@ export default function App() {
   const [crewNotif, setCrewNotif] = useState(0)
   const [activityNotif, setActivityNotif] = useState(0)
   const [isPasswordRecovery, setIsPasswordRecovery] = useState(false)
+  const [installPrompt, setInstallPrompt] = useState(null)
+  const [showInstallBanner, setShowInstallBanner] = useState(false)
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
@@ -100,6 +102,35 @@ export default function App() {
     })
     return () => subscription.unsubscribe()
   }, [])
+
+  // Capture PWA install prompt
+  useEffect(() => {
+    const isInstalled = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone
+    if (isInstalled) return
+    const dismissed = localStorage.getItem('pwa_install_dismissed')
+    if (dismissed) return
+    const handler = (e) => {
+      e.preventDefault()
+      setInstallPrompt(e)
+      // Show banner after 30s of use
+      setTimeout(() => setShowInstallBanner(true), 30000)
+    }
+    window.addEventListener('beforeinstallprompt', handler)
+    return () => window.removeEventListener('beforeinstallprompt', handler)
+  }, [])
+
+  const handleInstall = async () => {
+    if (!installPrompt) return
+    installPrompt.prompt()
+    const { outcome } = await installPrompt.userChoice
+    if (outcome === 'accepted') setInstallPrompt(null)
+    setShowInstallBanner(false)
+  }
+
+  const dismissInstall = () => {
+    localStorage.setItem('pwa_install_dismissed', '1')
+    setShowInstallBanner(false)
+  }
 
   // Request notification permission and save push subscription
   useEffect(() => {
@@ -244,6 +275,28 @@ export default function App() {
           crewNotif={crewNotif}
           activityNotif={activityNotif}
         />
+        {showInstallBanner && (
+          <div className="fixed inset-0 z-[80] flex flex-col justify-end">
+            <div className="absolute inset-0 bg-black/50" onClick={dismissInstall} />
+            <div className="relative bg-white rounded-t-[24px] p-6 z-10">
+              <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-5" />
+              <div className="flex items-center gap-4 mb-4">
+                <div className="w-14 h-14 bg-[#1D9E75] rounded-[16px] flex items-center justify-center text-3xl shadow-lg">⛳</div>
+                <div>
+                  <p className="font-black text-lg">Add SwingSwipe</p>
+                  <p className="text-sm text-gray-400">to your home screen</p>
+                </div>
+              </div>
+              <p className="text-sm text-gray-500 mb-5">Get instant access and push notifications — no App Store needed.</p>
+              <button onClick={handleInstall} className="w-full py-3.5 bg-[#1D9E75] text-white font-bold rounded-[14px] text-base active:opacity-80 mb-2">
+                Add to Home Screen
+              </button>
+              <button onClick={dismissInstall} className="w-full text-center text-sm text-gray-400 py-2">
+                Not now
+              </button>
+            </div>
+          </div>
+        )}
       </>
     )
   }
