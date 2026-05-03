@@ -321,6 +321,14 @@ export default function Crew({ user, userProfile, onFriendRequestsChange }) {
       { user_id: user.id, friend_id: req.from_id },
       { user_id: req.from_id, friend_id: user.id },
     ])
+    const myName = userProfile?.name?.split(' ')[0] || 'Someone'
+    supabase.functions.invoke('send-push', {
+      body: {
+        user_id: req.from_id,
+        title: `${myName} accepted your friend request 🤝`,
+        body: 'You can now see each other\'s games and crew.',
+      },
+    })
     fetchAll()
   }
 
@@ -449,14 +457,23 @@ export default function Crew({ user, userProfile, onFriendRequestsChange }) {
                 <h2 className="section-label mb-2">Your crews</h2>
                 <div className="space-y-2">
                   {crews.map(crew => (
-                    <div key={crew.id} className="card p-4 flex items-center justify-between">
-                      <div>
+                    <div key={crew.id} className="card p-4">
+                      <div className="flex items-center justify-between mb-2">
                         <p className="font-semibold text-sm">{crew.name}</p>
-                        <p className="text-xs text-gray-400">Tap to open chat</p>
+                        <button onClick={() => setActiveChat(crew)}
+                          className="text-sm bg-[#1D9E75] text-white px-3 py-1.5 rounded-[8px] font-semibold">
+                          Chat 💬
+                        </button>
                       </div>
-                      <button onClick={() => setActiveChat(crew)}
-                        className="text-sm bg-[#1D9E75] text-white px-3 py-1.5 rounded-[8px] font-semibold">
-                        Chat 💬
+                      <button
+                        onClick={() => {
+                          const text = `Join my crew "${crew.name}" on SwingSwipe ⛳\n\nOpen SwingSwipe → Crew tab → tap "+ Crew" → Join crew → type: ${crew.name}`
+                          if (navigator.share) navigator.share({ title: `Join ${crew.name} on SwingSwipe`, text })
+                          else navigator.clipboard?.writeText(crew.name).then(() => alert('Crew name copied!'))
+                        }}
+                        className="w-full text-xs text-[#1D9E75] font-semibold bg-[#1D9E75]/8 rounded-[8px] py-1.5 flex items-center justify-center gap-1.5 active:opacity-70"
+                      >
+                        🔗 Invite friends — share crew name
                       </button>
                     </div>
                   ))}

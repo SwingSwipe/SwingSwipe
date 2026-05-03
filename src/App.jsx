@@ -171,6 +171,54 @@ export default function App() {
     supabase.functions.invoke('send-push', { body: { user_id: userId, title, body } }).catch(() => {})
   }
 
+  // Game-day reminder: fire a local notification if tee time is within 3 hours
+  useEffect(() => {
+    if (!user || Notification.permission !== 'granted') return
+    const check = async () => {
+      const today = new Date().toISOString().split('T')[0]
+      const { data } = await supabase
+        .from('round_requests')
+        .select('confirmed, round_listings(course_name, date, tee_time)')
+        .eq('requester_id', user.id)
+        .eq('status', 'accepted')
+      const now = Date.now()
+      data?.forEach(r => {
+        const g = r.round_listings
+        if (!g?.tee_time || g.date !== today) return
+        const teeMs = new Date(`${g.date}T${g.tee_time}`).getTime()
+        const minsAway = (teeMs - now) / 60000
+        if (minsAway > 0 && minsAway <= 180) {
+          const mins = Math.round(minsAway)
+          new Notification(`Tee time in ${mins < 60 ? `${mins}m` : `${Math.round(mins/60)}h`} ⛳`, {
+            body: `${g.course_name} — don't be late!`,
+            icon: '/icon-192.png',
+            tag: `tee-${g.date}-${g.tee_time}`,
+          })
+        }
+      })
+      // Also check hosted games
+      const { data: hosted } = await supabase
+        .from('round_listings')
+        .select('course_name, date, tee_time')
+        .eq('host_id', user.id)
+        .eq('date', today)
+      hosted?.forEach(g => {
+        if (!g.tee_time) return
+        const teeMs = new Date(`${g.date}T${g.tee_time}`).getTime()
+        const minsAway = (teeMs - now) / 60000
+        if (minsAway > 0 && minsAway <= 180) {
+          const mins = Math.round(minsAway)
+          new Notification(`Your game starts in ${mins < 60 ? `${mins}m` : `${Math.round(mins/60)}h`} ⛳`, {
+            body: `${g.course_name} — your players are counting on you!`,
+            icon: '/icon-192.png',
+            tag: `host-${g.date}-${g.tee_time}`,
+          })
+        }
+      })
+    }
+    check()
+  }, [user])
+
   // Listen for new game requests on my listings
   useEffect(() => {
     if (!user) return
