@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SwingSwipe — Hybrid Mockup</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #1a1a2e; font-family: -apple-system, 'Inter', sans-serif; color: #111; min-height: 100vh; padding: 32px 24px 48px; }
+
+  .page-title { color: #fff; font-size: 22px; font-weight: 800; text-align: center; margin-bottom: 6px; letter-spacing: -0.5px; }
+  .page-sub { color: rgba(255,255,255,0.5); font-size: 13px; text-align: center; margin-bottom: 32px; }
+
+  .phones { display: flex; gap: 24px; justify-content: center; flex-wrap: wrap; }
+
+  .phone-wrap { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+  .phone-label { color: rgba(255,255,255,0.6); font-size: 12px; font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase; }
+
+  .phone {
+    width: 280px;
+    height: 560px;
+    border-radius: 36px;
+    background: #fff;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 32px 64px rgba(0,0,0,0.5), 0 0 0 6px #2a2a3e, 0 0 0 7px rgba(255,255,255,0.1);
+    position: relative;
+  }
+
+  /* ---- HEADER ---- */
+  .hero-header {
+    background: linear-gradient(145deg, #064e35 0%, #1D9E75 55%, #34d399 100%);
+    padding: 20px 18px 28px;
+    position: relative;
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+  .hero-header::before {
+    content: '';
+    position: absolute;
+    top: -30px; right: -30px;
+    width: 120px; height: 120px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 50%;
+  }
+  .hero-header::after {
+    content: '';
+    position: absolute;
+    bottom: -20px; left: -10px;
+    width: 80px; height: 80px;
+    background: rgba(255,255,255,0.05);
+    border-radius: 50%;
+  }
+  .hero-top { display: flex; justify-content: space-between; align-items: center; position: relative; z-index: 1; }
+  .hero-greeting { color: rgba(255,255,255,0.75); font-size: 11px; }
+  .hero-name { color: #fff; font-size: 17px; font-weight: 800; letter-spacing: -0.3px; margin-top: 1px; }
+  .hero-avatar { width: 34px; height: 34px; border-radius: 50%; background: rgba(255,255,255,0.25); border: 2px solid rgba(255,255,255,0.5); display: flex; align-items: center; justify-content: center; color: #fff; font-size: 13px; font-weight: 700; }
+  .hero-nudge { background: rgba(255,255,255,0.15); backdrop-filter: blur(4px); border-radius: 10px; padding: 8px 12px; margin-top: 12px; position: relative; z-index: 1; display: flex; align-items: center; gap: 8px; }
+  .hero-nudge-text { color: rgba(255,255,255,0.9); font-size: 11px; font-weight: 500; }
+  .hero-nudge-count { background: #fff; color: #1D9E75; font-size: 10px; font-weight: 800; border-radius: 10px; padding: 2px 7px; margin-left: auto; }
+
+  /* ---- FILTER CHIPS ---- */
+  .chips { display: flex; gap: 6px; padding: 10px 14px; background: #fff; border-bottom: 1px solid #f0f0f0; overflow: hidden; flex-shrink: 0; }
+  .chip { font-size: 11px; font-weight: 600; border-radius: 20px; padding: 5px 11px; white-space: nowrap; cursor: pointer; }
+  .chip-active { background: #111; color: #fff; }
+  .chip-inactive { background: #f4f4f4; color: #666; }
+
+  /* ---- SCROLL AREA ---- */
+  .scroll { flex: 1; overflow: hidden; padding: 10px 12px; background: #f7f8f7; display: flex; flex-direction: column; gap: 8px; }
+
+  /* ---- GAME CARD (social-first) ---- */
+  .game-card { background: #fff; border-radius: 14px; padding: 12px; border: 1px solid #efefef; }
+  .game-card-host { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+  .avatar { width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex-shrink: 0; }
+  .host-name { font-size: 12px; font-weight: 700; color: #111; }
+  .host-meta { font-size: 10px; color: #aaa; margin-top: 1px; }
+  .join-btn-solid { background: #1D9E75; color: #fff; font-size: 11px; font-weight: 700; border-radius: 20px; padding: 6px 14px; margin-left: auto; border: none; cursor: pointer; }
+  .join-btn-outline { border: 1.5px solid #1D9E75; color: #1D9E75; font-size: 11px; font-weight: 700; border-radius: 20px; padding: 5px 14px; margin-left: auto; background: transparent; cursor: pointer; }
+  .game-course { font-size: 14px; font-weight: 800; color: #111; letter-spacing: -0.2px; }
+  .game-details { font-size: 11px; color: #888; margin-top: 3px; }
+  .tags { display: flex; gap: 5px; margin-top: 8px; flex-wrap: wrap; }
+  .tag { font-size: 10px; border-radius: 10px; padding: 3px 8px; }
+  .tag-gray { background: #f2f2f2; color: #666; }
+  .tag-green { background: #e8f5ef; color: #1D9E75; font-weight: 600; }
+  .tag-orange { background: #fff3e8; color: #f97316; }
+  .spots { display: flex; gap: 4px; margin-top: 8px; }
+  .spot-dot { width: 8px; height: 8px; border-radius: 50%; }
+  .spot-filled { background: #1D9E75; }
+  .spot-open { background: #e0f2eb; border: 1.5px solid #1D9E75; }
+
+  /* ---- SECTION LABEL ---- */
+  .section-label { font-size: 10px; font-weight: 700; color: #aaa; letter-spacing: 0.8px; text-transform: uppercase; padding: 0 2px; margin-top: 2px; }
+
+  /* ---- BOTTOM NAV ---- */
+  .bottom-nav { background: #fff; border-top: 1px solid #f0f0f0; padding: 8px 4px 10px; display: flex; justify-content: space-around; flex-shrink: 0; box-shadow: 0 -4px 16px rgba(0,0,0,0.06); }
+  .nav-item { display: flex; flex-direction: column; align-items: center; gap: 2px; cursor: pointer; flex: 1; }
+  .nav-icon { font-size: 17px; line-height: 1; }
+  .nav-label { font-size: 9px; font-weight: 600; }
+  .nav-active .nav-label { color: #1D9E75; }
+  .nav-inactive .nav-label { color: #ccc; }
+  .nav-dot { width: 4px; height: 4px; background: #1D9E75; border-radius: 50%; margin-bottom: 1px; }
+
+  /* ---- GAMES PAGE ---- */
+  .section-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px 4px; background: #fff; }
+  .section-title { font-size: 15px; font-weight: 800; color: #111; letter-spacing: -0.3px; }
+  .section-badge { background: #f0f0f0; color: #666; font-size: 10px; font-weight: 700; border-radius: 10px; padding: 2px 7px; }
+  .my-game-card { background: #fff; border-radius: 14px; padding: 12px 14px; margin: 0 12px 8px; border: 1px solid #efefef; }
+  .my-game-date { font-size: 10px; font-weight: 700; color: #1D9E75; text-transform: uppercase; letter-spacing: 0.5px; }
+  .my-game-course { font-size: 14px; font-weight: 800; color: #111; margin-top: 2px; letter-spacing: -0.2px; }
+  .my-game-meta { font-size: 11px; color: #999; margin-top: 2px; }
+  .my-game-players { display: flex; gap: -4px; margin-top: 8px; }
+  .mini-av { width: 24px; height: 24px; border-radius: 50%; border: 2px solid #fff; font-size: 9px; font-weight: 700; display: flex; align-items: center; justify-content: center; margin-left: -4px; }
+
+  /* ---- PROFILE PAGE ---- */
+  .profile-hero { background: linear-gradient(145deg, #064e35 0%, #1D9E75 100%); padding: 24px 18px 32px; position: relative; overflow: hidden; flex-shrink: 0; }
+  .profile-hero::before { content: ''; position: absolute; top: -20px; right: -20px; width: 100px; height: 100px; background: rgba(255,255,255,0.07); border-radius: 50%; }
+  .profile-av { width: 52px; height: 52px; border-radius: 50%; background: rgba(255,255,255,0.25); border: 3px solid rgba(255,255,255,0.5); display: flex; align-items: center; justify-content: center; font-size: 20px; color: #fff; font-weight: 700; margin-bottom: 8px; }
+  .profile-name { color: #fff; font-size: 18px; font-weight: 800; letter-spacing: -0.3px; }
+  .profile-sub { color: rgba(255,255,255,0.7); font-size: 11px; margin-top: 2px; }
+  .stat-row { display: flex; gap: 8px; margin-top: 12px; position: relative; z-index: 1; }
+  .stat-box { flex: 1; background: rgba(255,255,255,0.15); border-radius: 10px; padding: 8px; text-align: center; }
+  .stat-num { color: #fff; font-size: 16px; font-weight: 800; }
+  .stat-label { color: rgba(255,255,255,0.7); font-size: 9px; margin-top: 1px; text-transform: uppercase; letter-spacing: 0.3px; }
+
+  .profile-section { padding: 12px 14px; background: #fff; border-bottom: 1px solid #f5f5f5; }
+  .profile-section-title { font-size: 12px; font-weight: 700; color: #aaa; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+  .round-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid #f8f8f8; }
+  .round-course { font-size: 13px; font-weight: 700; color: #111; flex: 1; }
+  .round-score { font-size: 13px; font-weight: 800; color: #1D9E75; }
+  .round-date { font-size: 10px; color: #bbb; }
+
+  .select-hint { color: rgba(255,255,255,0.5); font-size: 12px; text-align: center; margin-top: 24px; }
+</style>
+</head>
+<body>
+
+<div class="page-title">SwingSwipe — Hybrid Direction</div>
+<div class="page-sub">B's gradient header energy + C's social card style. Three key screens.</div>
+
+<div class="phones">
+
+  <!-- ====== SCREEN 1: DISCOVER ====== -->
+  <div class="phone-wrap">
+    <div class="phone-label">Discover</div>
+    <div class="phone">
+      <!-- Hero Header -->
+      <div class="hero-header">
+        <div class="hero-top">
+          <div>
+            <div class="hero-greeting">Good morning,</div>
+            <div class="hero-name">Arjun ⛳</div>
+          </div>
+          <div class="hero-avatar">A</div>
+        </div>
+        <div class="hero-nudge">
+          <span style="font-size:14px;">🏌️</span>
+          <span class="hero-nudge-text">3 games near you this weekend</span>
+          <span class="hero-nudge-count">NEW</span>
+        </div>
+      </div>
+
+      <!-- Filter Chips -->
+      <div class="chips">
+        <span class="chip chip-active">All</span>
+        <span class="chip chip-inactive">This week</span>
+        <span class="chip chip-inactive">Casual</span>
+        <span class="chip chip-inactive">⭐ Top rated</span>
+      </div>
+
+      <!-- Cards -->
+      <div class="scroll">
+        <div class="section-label">Nearby · 3 games</div>
+
+        <!-- Card 1 -->
+        <div class="game-card">
+          <div class="game-card-host">
+            <div class="avatar" style="background:#e8f5ef;color:#1D9E75;">JK</div>
+            <div>
+              <div class="host-name">Jordan Kim</div>
+              <div class="host-meta">hosting · ★ 4.8 · 2h ago</div>
+            </div>
+            <button class="join-btn-solid">Join</button>
+          </div>
+          <div class="game-course">Torrey Pines South</div>
+          <div class="game-details">Sat · 7:30 AM · 4 holes left</div>
+          <div class="spots">
+            <div class="spot-dot spot-filled"></div>
+            <div class="spot-dot spot-filled"></div>
+            <div class="spot-dot spot-open"></div>
+            <div class="spot-dot spot-open"></div>
+          </div>
+          <div class="tags">
+            <span class="tag tag-green">🏆 Competitive</span>
+            <span class="tag tag-gray">🛺 Cart</span>
+            <span class="tag tag-gray">80s shooter</span>
+          </div>
+        </div>
+
+        <!-- Card 2 -->
+        <div class="game-card">
+          <div class="game-card-host">
+            <div class="avatar" style="background:#fef3e8;color:#f97316;">TM</div>
+            <div>
+              <div class="host-name">Tyler M.</div>
+              <div class="host-meta">hosting · ★ 4.5 · 5h ago</div>
+            </div>
+            <button class="join-btn-outline">Join</button>
+          </div>
+          <div class="game-course">Pebble Beach GC</div>
+          <div class="game-details">Sun · 9:00 AM · 2 spots left</div>
+          <div class="spots">
+            <div class="spot-dot spot-filled"></div>
+            <div class="spot-dot spot-filled"></div>
+            <div class="spot-dot spot-filled"></div>
+            <div class="spot-dot spot-open"></div>
+            <div class="spot-dot spot-open"></div>
+          </div>
+          <div class="tags">
+            <span class="tag tag-gray">😊 Casual</span>
+            <span class="tag tag-gray">🚶 Walk</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bottom Nav -->
+      <div class="bottom-nav">
+        <div class="nav-item nav-active">
+          <div class="nav-dot"></div>
+          <div class="nav-icon">🔍</div>
+          <div class="nav-label" style="color:#1D9E75;">Discover</div>
+        </div>
+        <div class="nav-item nav-inactive"><div class="nav-icon">⛳</div><div class="nav-label">Games</div></div>
+        <div class="nav-item nav-inactive"><div class="nav-icon">👥</div><div class="nav-label">Crew</div></div>
+        <div class="nav-item nav-inactive">
+          <div class="nav-icon">🔔</div>
+          <div class="nav-label">Activity</div>
+          <div style="position:absolute;top:6px;width:14px;height:14px;background:#ef4444;border-radius:50%;border:2px solid #fff;font-size:8px;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;margin-left:10px;">2</div>
+        </div>
+        <div class="nav-item nav-inactive"><div class="nav-icon">👤</div><div class="nav-label">Profile</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====== SCREEN 2: MY GAMES ====== -->
+  <div class="phone-wrap">
+    <div class="phone-label">My Games</div>
+    <div class="phone">
+      <!-- Header (no gradient — toned down for inner pages) -->
+      <div style="background:#fff;padding:18px 16px 12px;border-bottom:1px solid #f0f0f0;flex-shrink:0;">
+        <div style="font-size:18px;font-weight:900;color:#111;letter-spacing:-0.5px;">My Games</div>
+        <div style="display:flex;gap:8px;margin-top:10px;">
+          <span class="chip chip-active">Upcoming</span>
+          <span class="chip chip-inactive">Past rounds</span>
+          <span class="chip chip-inactive">Host</span>
+        </div>
+      </div>
+
+      <div style="flex:1;overflow:hidden;background:#f7f8f7;padding-top:10px;display:flex;flex-direction:column;gap:0;">
+        <!-- Upcoming section -->
+        <div class="section-header" style="background:#f7f8f7;">
+          <span class="section-label" style="padding:0;">Upcoming · 2</span>
+        </div>
+
+        <div class="my-game-card" style="margin:6px 12px;">
+          <div class="my-game-date">SAT · MAY 10 · 7:30 AM</div>
+          <div class="my-game-course">Torrey Pines South</div>
+          <div class="my-game-meta">You're hosting · 3/4 filled</div>
+          <div style="display:flex;align-items:center;gap:0;margin-top:8px;">
+            <div class="mini-av" style="background:#e8f5ef;color:#1D9E75;margin-left:0;">JK</div>
+            <div class="mini-av" style="background:#fef3e8;color:#f97316;">TM</div>
+            <div class="mini-av" style="background:#f0f0f0;color:#999;border:1.5px dashed #ddd;">+</div>
+            <div style="margin-left:auto;">
+              <span style="background:#e8f5ef;color:#1D9E75;font-size:10px;font-weight:700;border-radius:10px;padding:4px 10px;">3 players confirmed</span>
+            </div>
+          </div>
+          <div style="display:flex;gap:6px;margin-top:10px;">
+            <button style="flex:1;background:#111;color:#fff;font-size:11px;font-weight:700;border-radius:10px;padding:8px;border:none;cursor:pointer;">Manage</button>
+            <button style="flex:1;background:#f4f4f4;color:#666;font-size:11px;font-weight:600;border-radius:10px;padding:8px;border:none;cursor:pointer;">Share 🔗</button>
+          </div>
+        </div>
+
+        <div class="my-game-card" style="margin:0 12px;">
+          <div class="my-game-date">SUN · MAY 11 · 9:00 AM</div>
+          <div class="my-game-course">Pebble Beach GC</div>
+          <div class="my-game-meta">Joined · Tyler M. hosting</div>
+          <div style="display:flex;align-items:center;gap:6px;margin-top:8px;">
+            <span style="background:#fff3e8;color:#f97316;font-size:10px;font-weight:700;border-radius:10px;padding:4px 10px;">1 spot still open</span>
+          </div>
+        </div>
+
+        <!-- Past section header -->
+        <div class="section-header" style="background:#f7f8f7;padding-top:14px;">
+          <span class="section-label" style="padding:0;">Past rounds · 8</span>
+          <span style="color:#1D9E75;font-size:11px;font-weight:600;cursor:pointer;">Rate players →</span>
+        </div>
+
+        <div class="my-game-card" style="margin:6px 12px;opacity:0.7;">
+          <div class="my-game-date" style="color:#999;">WED · APR 30</div>
+          <div class="my-game-course">Spyglass Hill</div>
+          <div class="my-game-meta">Joined · Casual · 4 players</div>
+        </div>
+      </div>
+
+      <!-- Bottom Nav -->
+      <div class="bottom-nav">
+        <div class="nav-item nav-inactive"><div class="nav-icon">🔍</div><div class="nav-label">Discover</div></div>
+        <div class="nav-item nav-active">
+          <div class="nav-dot"></div>
+          <div class="nav-icon">⛳</div>
+          <div class="nav-label" style="color:#1D9E75;">Games</div>
+        </div>
+        <div class="nav-item nav-inactive"><div class="nav-icon">👥</div><div class="nav-label">Crew</div></div>
+        <div class="nav-item nav-inactive"><div class="nav-icon">🔔</div><div class="nav-label">Activity</div></div>
+        <div class="nav-item nav-inactive"><div class="nav-icon">👤</div><div class="nav-label">Profile</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====== SCREEN 3: PROFILE ====== -->
+  <div class="phone-wrap">
+    <div class="phone-label">Profile</div>
+    <div class="phone">
+      <div class="profile-hero">
+        <div style="position:relative;z-index:1;">
+          <div class="profile-av">A</div>
+          <div class="profile-name">Arjun S.</div>
+          <div class="profile-sub">📍 Torrey Pines · 80s shooter</div>
+        </div>
+        <div class="stat-row">
+          <div class="stat-box">
+            <div class="stat-num">12</div>
+            <div class="stat-label">Rounds</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-num">83.2</div>
+            <div class="stat-label">Avg Score</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-num">★ 4.7</div>
+            <div class="stat-label">Rating</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="flex:1;overflow:hidden;background:#f7f8f7;display:flex;flex-direction:column;gap:0;">
+        <div class="profile-section">
+          <div class="profile-section-title">Recent Rounds</div>
+          <div class="round-row">
+            <div style="width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,#1D9E75,#34d399);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;">⛳</div>
+            <div style="flex:1;">
+              <div class="round-course">Torrey Pines S.</div>
+              <div class="round-date">Apr 28 · 18 holes</div>
+            </div>
+            <div class="round-score">82</div>
+          </div>
+          <div class="round-row">
+            <div style="width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,#064e35,#1D9E75);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;">🌿</div>
+            <div style="flex:1;">
+              <div class="round-course">Spyglass Hill</div>
+              <div class="round-date">Apr 23 · 18 holes</div>
+            </div>
+            <div class="round-score">85</div>
+          </div>
+          <div class="round-row" style="border-bottom:none;">
+            <div style="width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,#166534,#16a34a);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;">🏔️</div>
+            <div style="flex:1;">
+              <div class="round-course">Pebble Beach GC</div>
+              <div class="round-date">Apr 18 · 18 holes</div>
+            </div>
+            <div class="round-score">88</div>
+          </div>
+        </div>
+        <div style="padding:12px 14px;">
+          <button style="width:100%;background:#1D9E75;color:#fff;font-size:13px;font-weight:700;border-radius:12px;padding:12px;border:none;cursor:pointer;">+ Log a Round</button>
+        </div>
+      </div>
+
+      <!-- Bottom Nav -->
+      <div class="bottom-nav">
+        <div class="nav-item nav-inactive"><div class="nav-icon">🔍</div><div class="nav-label">Discover</div></div>
+        <div class="nav-item nav-inactive"><div class="nav-icon">⛳</div><div class="nav-label">Games</div></div>
+        <div class="nav-item nav-inactive"><div class="nav-icon">👥</div><div class="nav-label">Crew</div></div>
+        <div class="nav-item nav-inactive"><div class="nav-icon">🔔</div><div class="nav-label">Activity</div></div>
+        <div class="nav-item nav-active">
+          <div class="nav-dot"></div>
+          <div class="nav-icon">👤</div>
+          <div class="nav-label" style="color:#1D9E75;">Profile</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="select-hint">Does this feel right? Tell me in the terminal — any tweaks to colors, card style, header, or layout.</div>
+
+<script src="http://localhost:64275/helper.js"></script>
+</body>
+</html>

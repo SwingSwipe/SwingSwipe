@@ -56,18 +56,18 @@ const TABS = [
 
 export default function BottomNav({ activeTab, onTabChange, gameNotif, crewNotif, activityNotif }) {
   return (
-    <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 z-50 shadow-[0_-4px_20px_rgba(0,0,0,0.06)]">
-      <div className="flex max-w-lg mx-auto">
+    <div className="fixed bottom-0 left-0 right-0 z-50 px-3 pb-3 pointer-events-none">
+      <div className="flex max-w-lg mx-auto bg-white/95 backdrop-blur border border-white shadow-[0_-8px_28px_rgba(6,78,53,0.14)] rounded-[22px] pointer-events-auto">
         {TABS.map(tab => {
           const isActive = activeTab === tab.id
           return (
             <button
               key={tab.id}
               onClick={() => onTabChange(tab.id)}
-              className="flex-1 flex flex-col items-center py-2 pt-3 relative transition-opacity active:opacity-60"
+              className="flex-1 flex flex-col items-center py-2.5 relative transition-all active:opacity-70"
             >
               {isActive && (
-                <span className="absolute top-1.5 left-1/2 -translate-x-1/2 w-1 h-1 bg-[#1D9E75] rounded-full" />
+                <span className="absolute top-1.5 left-1/2 -translate-x-1/2 w-7 h-1 bg-[#1D9E75] rounded-full" />
               )}
               {tab.icon(isActive)}
               <span className="text-[10px] mt-0.5 font-semibold" style={{ color: isActive ? '#1D9E75' : '#9ca3af' }}>

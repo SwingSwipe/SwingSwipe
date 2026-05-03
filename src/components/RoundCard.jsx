@@ -1,4 +1,5 @@
 import Avatar from './Avatar'
+import SpotCircles from './SpotCircles'
 
 const VIBE_COLORS = {
   casual: 'bg-blue-100 text-blue-700',
@@ -55,10 +56,11 @@ export default function RoundCard({ listing, onJoin, onCancel, currentUserId, on
   const isFull = spotsLeft === 0
 
   return (
-    <div className="card p-4 mb-3">
+    <div className="card card-press p-4 mb-3 overflow-hidden relative">
+      <div className="absolute left-0 top-0 h-full w-1 bg-gradient-to-b from-[#064e35] via-[#1D9E75] to-[#f59e0b]" />
       <div className="flex items-start justify-between mb-2">
         <div className="flex-1">
-          <h3 className="font-semibold text-[15px] leading-tight">{listing.course_name}</h3>
+          <h3 className="font-black text-[16px] leading-tight text-gray-950">{listing.course_name}</h3>
           <p className="text-sm text-gray-500 mt-0.5">
             {formatDate(listing.date)} · {formatTime(listing.tee_time)}
           </p>
@@ -73,6 +75,15 @@ export default function RoundCard({ listing, onJoin, onCancel, currentUserId, on
       <div className="flex items-center gap-2 mb-3">
         <Avatar name={listing.profiles?.name} url={listing.profiles?.avatar_url} size={7} />
         <span className="text-sm text-gray-600">{listing.profiles?.name || 'Unknown'}</span>
+      </div>
+
+      <div className="bg-[#f7faf7] rounded-[14px] px-3 py-2 mb-3 flex items-center justify-between">
+        <SpotCircles
+          total={listing.spots_total || 4}
+          host={listing.profiles}
+          occupiedCount={listing.spots_filled || 1}
+        />
+        <span className="text-[11px] font-black text-gray-400 uppercase tracking-wide">foursome</span>
       </div>
 
       <div className="flex flex-wrap gap-1.5 mb-3">

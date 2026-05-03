@@ -5,6 +5,7 @@ import Modal from '../components/Modal'
 import RoundCard from '../components/RoundCard'
 import PublicProfileModal from '../components/PublicProfileModal'
 import Leaderboard from './Leaderboard'
+import HeroHeader from '../components/HeroHeader'
 
 function CrewChat({ crew, currentUserId, onClose }) {
   const [messages, setMessages] = useState([])
@@ -358,20 +359,12 @@ export default function Crew({ user, userProfile, onFriendRequestsChange }) {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="page-header">
-        {/* People decoration */}
-        <svg className="absolute right-3 top-5 opacity-10" width="80" height="72" viewBox="0 0 80 72" fill="none">
-          <circle cx="28" cy="18" r="12" fill="white"/>
-          <path d="M4 60 Q4 40 28 40 Q52 40 52 60" fill="white"/>
-          <circle cx="56" cy="20" r="10" fill="white"/>
-          <path d="M36 62 Q40 44 56 44 Q72 44 76 62" fill="white"/>
-        </svg>
-        <p className="text-white/60 text-xs font-semibold uppercase tracking-widest mb-1">Your people</p>
-        <div className="flex items-center justify-between mb-3">
-          <div>
-            <h1 className="text-white text-2xl font-black mb-0.5">Crew 🤝</h1>
-            <p className="text-white/70 text-xs">Friends, groups and who's playing</p>
-          </div>
+      <HeroHeader
+        eyebrow="Your people"
+        title="Crew"
+        subtitle="Friends, groups and who's playing"
+        icon="🤝"
+        action={(
           <div className="flex gap-2">
             <button onClick={() => setShowLeaderboard(true)} className="text-sm bg-white/20 text-white px-3 py-1.5 rounded-[10px] font-bold">
               🏆
@@ -380,7 +373,8 @@ export default function Crew({ user, userProfile, onFriendRequestsChange }) {
               + Crew
             </button>
           </div>
-        </div>
+        )}
+      >
         <div className="flex gap-2">
           <input
             className="w-full border-0 rounded-[10px] px-4 py-2.5 text-sm focus:outline-none bg-white/90"
@@ -391,7 +385,7 @@ export default function Crew({ user, userProfile, onFriendRequestsChange }) {
           />
           <button onClick={handleSearch} className="px-4 py-2.5 bg-white text-[#1D9E75] rounded-[10px] text-sm font-bold shadow-sm">Find</button>
         </div>
-      </div>
+      </HeroHeader>
 
       <div className="flex-1 overflow-y-auto px-4 py-4 pb-24">
         {/* Search results */}

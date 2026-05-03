@@ -7,6 +7,8 @@ import ConfirmSheet from '../components/ConfirmSheet'
 import CourseInput from '../components/CourseInput'
 import { GameHostCardSkeleton } from '../components/Skeleton'
 import RatePlayersModal from '../components/RatePlayersModal'
+import HeroHeader from '../components/HeroHeader'
+import SpotCircles from '../components/SpotCircles'
 
 const VIBE_LABELS = {
   casual: '😊 Casual',
@@ -490,9 +492,10 @@ export default function Games({ user }) {
     const date = new Date(game.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
     const time = game.tee_time ? game.tee_time.slice(0, 5) : ''
     const spots = game.spots_total - game.spots_filled
-    const text = `Join me for golf! ⛳\n${game.holes || 18} holes at ${game.course_name}\n📅 ${date}${time ? ` · ${time}` : ''}\n${spots} spot${spots !== 1 ? 's' : ''} left\n\nFind me on SwingSwipe: ${window.location.origin}`
+    const link = `${window.location.origin}?game=${game.id}`
+    const text = `Join me for golf! ⛳\n${game.holes || 18} holes at ${game.course_name}\n📅 ${date}${time ? ` · ${time}` : ''}\n${spots} spot${spots !== 1 ? 's' : ''} left\n\n${link}`
     if (navigator.share) {
-      navigator.share({ title: 'Join my golf game', text })
+      navigator.share({ title: 'Join my golf game', text, url: link })
     } else {
       navigator.clipboard?.writeText(text)
     }
@@ -503,20 +506,12 @@ export default function Games({ user }) {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="page-header">
-        {/* Golf ball decoration */}
-        <svg className="absolute right-3 top-5 opacity-10" width="80" height="80" viewBox="0 0 80 80" fill="none">
-          <circle cx="40" cy="40" r="36" fill="white"/>
-          <circle cx="30" cy="30" r="3" fill="#1D9E75"/>
-          <circle cx="42" cy="26" r="2.5" fill="#1D9E75"/>
-          <circle cx="52" cy="34" r="3" fill="#1D9E75"/>
-          <circle cx="50" cy="46" r="2.5" fill="#1D9E75"/>
-          <circle cx="38" cy="52" r="3" fill="#1D9E75"/>
-          <circle cx="28" cy="44" r="2.5" fill="#1D9E75"/>
-        </svg>
-        <p className="text-white/60 text-xs font-semibold uppercase tracking-widest mb-1">Tee times</p>
-        <h1 className="text-white text-2xl font-black mb-0.5">Games 🏌️</h1>
-        <p className="text-white/70 text-xs mb-3">Post a game or manage your tee times</p>
+      <HeroHeader
+        eyebrow="Tee times"
+        title="Games"
+        subtitle="Post, fill, chat, confirm, and rate your rounds"
+        icon="⛳"
+      >
         <div className="flex gap-2">
           <button onClick={() => setTab('mine')}
             className={`pill flex-1 py-1.5 font-bold relative ${tab === 'mine' ? 'bg-white text-[#1D9E75]' : 'bg-white/20 text-white'}`}>
@@ -529,7 +524,7 @@ export default function Games({ user }) {
             {totalInvites > 0 && <span className="absolute -top-1 -right-1 w-4 h-4 bg-orange-500 text-white text-[10px] rounded-full flex items-center justify-center font-bold">{totalInvites}</span>}
           </button>
         </div>
-      </div>
+      </HeroHeader>
 
       <div className="flex-1 overflow-y-auto px-4 py-4 pb-24" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
         {refreshing && (
@@ -556,12 +551,12 @@ export default function Games({ user }) {
                 const isGamePast = isPast(game.date)
                 const requests = pendingRequests[game.id] || []
                 return (
-                  <div key={game.id} className="card mb-4 overflow-hidden">
-                    <div className={`h-1.5 ${game.is_active && !isGamePast ? 'bg-[#1D9E75]' : 'bg-gray-300'}`} />
+                  <div key={game.id} className="card card-press mb-4 overflow-hidden">
+                    <div className={`h-1.5 ${game.is_active && !isGamePast ? 'bg-gradient-to-r from-[#064e35] via-[#1D9E75] to-[#f59e0b]' : 'bg-gray-300'}`} />
                     <div className="p-4">
                       <div className="flex items-start justify-between mb-1">
                         <div>
-                          <p className="font-bold">{game.course_name}</p>
+                          <p className="font-black text-[17px] text-gray-950">{game.course_name}</p>
                           <p className="text-xs text-gray-400 mt-0.5">
                             {new Date(game.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
                             {game.tee_time && ` · ${game.tee_time.slice(0, 5)}`}
@@ -575,6 +570,15 @@ export default function Games({ user }) {
                         <span className={`pill text-xs ${game.is_active && !isGamePast ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
                           {isGamePast ? 'Played' : game.is_active ? `${game.spots_total - game.spots_filled} spots left` : 'Closed'}
                         </span>
+                      </div>
+
+                      <div className="bg-[#f7faf7] rounded-[14px] px-3 py-2 mt-3 mb-3 flex items-center justify-between">
+                        <SpotCircles
+                          total={game.spots_total || 4}
+                          occupiedCount={game.spots_filled || 1}
+                          players={(confirmedPlayers[game.id] || []).map(r => r.profiles).filter(Boolean)}
+                        />
+                        <span className="text-[11px] font-black text-gray-400 uppercase tracking-wide">group</span>
                       </div>
 
                       {requests.length > 0 && (
@@ -690,12 +694,14 @@ export default function Games({ user }) {
                 <p className="font-bold text-gray-700 text-lg">No games joined yet</p>
                 <p className="text-sm text-gray-400 mt-2">Find open games in the Discover tab.</p>
               </div>
-            ) : joinedGames.length > 0 ? (
-              joinedGames.map(game => (
-                <div key={game.id} className="card mb-3 overflow-hidden">
-                  <div className="h-1.5 bg-[#1D9E75]" />
+            ) : joinedGames.length > 0 ? (() => {
+              const upcomingJoined = joinedGames.filter(g => !isPast(g.date))
+              const pastJoined = joinedGames.filter(g => isPast(g.date))
+              const renderJoined = (game) => (
+                <div key={game.id} className="card card-press mb-3 overflow-hidden">
+                  <div className="h-1.5 bg-gradient-to-r from-[#064e35] via-[#1D9E75] to-[#f59e0b]" />
                   <div className="p-4">
-                    <p className="font-bold">{game.course_name}</p>
+                    <p className="font-black text-[17px] text-gray-950">{game.course_name}</p>
                     <p className="text-xs text-gray-400 mt-0.5">
                       {new Date(game.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
                       {game.tee_time && ` · ${game.tee_time.slice(0, 5)}`}
@@ -705,6 +711,14 @@ export default function Games({ user }) {
                       {game.holes && <span className="pill text-[10px] bg-gray-100 text-gray-500 py-0.5">{game.holes} holes</span>}
                       {game.transport && <span className="pill text-[10px] bg-gray-100 text-gray-500 py-0.5">{TRANSPORT_LABELS[game.transport]}</span>}
                       {game.pace && <span className="pill text-[10px] bg-orange-50 text-orange-500 py-0.5">{PACE_LABELS[game.pace]}</span>}
+                    </div>
+                    <div className="bg-[#f7faf7] rounded-[14px] px-3 py-2 mb-3 flex items-center justify-between">
+                      <SpotCircles
+                        total={game.spots_total || 4}
+                        host={game.profiles}
+                        occupiedCount={game.spots_filled || 1}
+                      />
+                      <span className="text-[11px] font-black text-gray-400 uppercase tracking-wide">group</span>
                     </div>
                     {isUpcoming(game.date) && !game.myConfirmed && (
                       <div className="mb-3 p-3 bg-orange-50 rounded-[10px] flex items-center justify-between">
@@ -729,8 +743,24 @@ export default function Games({ user }) {
                     </div>
                   </div>
                 </div>
-              ))
-            ) : null}
+              )
+              return (
+                <>
+                  {upcomingJoined.length > 0 && (
+                    <>
+                      <p className="section-label mb-3">Upcoming · {upcomingJoined.length}</p>
+                      {upcomingJoined.map(renderJoined)}
+                    </>
+                  )}
+                  {pastJoined.length > 0 && (
+                    <>
+                      <p className="section-label mb-3 mt-2">Past rounds · {pastJoined.length}</p>
+                      {pastJoined.map(renderJoined)}
+                    </>
+                  )}
+                </>
+              )
+            })() : null}
           </>
         )}
       </div>

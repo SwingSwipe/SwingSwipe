@@ -5,6 +5,8 @@ import Modal from '../components/Modal'
 import ConfirmSheet from '../components/ConfirmSheet'
 import PublicProfileModal from '../components/PublicProfileModal'
 import { PlayerCardSkeleton, GameCardSkeleton } from '../components/Skeleton'
+import HeroHeader from '../components/HeroHeader'
+import SpotCircles from '../components/SpotCircles'
 
 const HANDICAP_LABELS = {
   beginner: 'Beginner',
@@ -52,16 +54,17 @@ function StarRating({ score, count }) {
 
 function PlayerCard({ player, onTap }) {
   return (
-    <div onClick={() => onTap(player)} className="card feed-card p-4 mb-3 cursor-pointer active:opacity-80">
+    <div onClick={() => onTap(player)} className="card card-press feed-card p-4 mb-3 cursor-pointer overflow-hidden relative">
+      <div className="absolute right-0 top-0 w-20 h-20 bg-[#e8f5ef] rounded-bl-[42px]" />
       <div className="flex items-start gap-3">
         <Avatar name={player.name} url={player.avatar_url} size={14} />
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between">
             <div>
-              <p className="font-bold text-[15px]">{player.name?.split(' ')[0]} {player.name?.split(' ')[1]?.[0]}.</p>
-              <p className="text-xs text-gray-400 mt-0.5">📍 {player.home_course || player.location || 'No home course'}</p>
+              <p className="font-black text-[16px] text-gray-950">{player.name?.split(' ')[0]} {player.name?.split(' ')[1]?.[0]}.</p>
+              <p className="text-xs text-gray-400 mt-0.5 truncate max-w-[170px]">📍 {player.home_course || player.location || 'No home course'}</p>
             </div>
-            <div className="text-right shrink-0">
+            <div className="text-right shrink-0 relative z-10">
               <span className="pill bg-[#1D9E75]/10 text-[#1D9E75] text-xs font-bold px-2 py-1">
                 {HANDICAP_LABELS[player.handicap_range] || player.handicap_range || '?'}
               </span>
@@ -113,12 +116,12 @@ function GameCard({ game, currentUserId, userHandicap, onRequest, onCancel, onWi
     && !SKILL_MEETS[userHandicap]?.has(game.skill_range)
 
   return (
-    <div className="card mb-3 overflow-hidden">
-      <div className="h-1.5 bg-[#1D9E75]" />
+    <div className="card card-press mb-3 overflow-hidden">
+      <div className="h-1.5 bg-gradient-to-r from-[#064e35] via-[#1D9E75] to-[#f59e0b]" />
       <div className="p-4">
-        <div className="flex items-start justify-between mb-2">
+        <div className="flex items-start justify-between mb-3">
           <div>
-            <p className="font-bold text-sm">{game.course_name}</p>
+            <p className="font-black text-[17px] leading-tight text-gray-950">{game.course_name}</p>
             <p className="text-xs text-gray-400 mt-0.5">
               {new Date(game.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
               {game.tee_time && ` · ${game.tee_time.slice(0, 5)}`}
@@ -126,10 +129,21 @@ function GameCard({ game, currentUserId, userHandicap, onRequest, onCancel, onWi
             </p>
           </div>
           <div className="text-right">
-            <span className={`pill text-xs font-bold ${spotsLeft > 0 ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+            <span className={`pill text-xs font-bold ${spotsLeft > 0 ? 'bg-[#e8f5ef] text-[#1D9E75]' : 'bg-gray-100 text-gray-500'}`}>
               {spotsLeft > 0 ? `${spotsLeft} spot${spotsLeft > 1 ? 's' : ''} left` : 'Full'}
             </span>
           </div>
+        </div>
+
+        <div className="bg-[#f7faf7] rounded-[14px] px-3 py-2 mb-3 flex items-center justify-between">
+          <SpotCircles
+            total={game.spots_total || 4}
+            host={game.profiles}
+            players={acceptedPlayers || []}
+          />
+          <span className="text-[11px] font-black text-gray-400 uppercase tracking-wide">
+            foursome
+          </span>
         </div>
 
         <button
@@ -172,22 +186,6 @@ function GameCard({ game, currentUserId, userHandicap, onRequest, onCancel, onWi
             </div>
           </div>
         </button>
-
-        {/* Accepted players */}
-        {acceptedPlayers?.length > 0 && (
-          <div className="flex items-center gap-2 mb-3">
-            <div className="flex -space-x-1.5">
-              {acceptedPlayers.slice(0, 4).map(p => (
-                <Avatar key={p.id} name={p.name} url={p.avatar_url} size={6} />
-              ))}
-            </div>
-            <p className="text-xs text-gray-400">
-              {acceptedPlayers.length === 1
-                ? `${acceptedPlayers[0].name?.split(' ')[0]} joined`
-                : `${acceptedPlayers.length} players joined`}
-            </p>
-          </div>
-        )}
 
         <div className="flex flex-wrap gap-1.5 mb-3">
           {game.holes && (
@@ -392,7 +390,7 @@ function PlayerModal({ player, currentUserId, onClose, onInvite }) {
   )
 }
 
-export default function Discover({ user, userProfile, onNavigateTab }) {
+export default function Discover({ user, userProfile, onNavigateTab, deepLinkGameId }) {
   const [mode, setMode] = useState('players')
   const [players, setPlayers] = useState([])
   const [games, setGames] = useState([])
@@ -402,12 +400,13 @@ export default function Discover({ user, userProfile, onNavigateTab }) {
   const [requestStatus, setRequestStatus] = useState({})
   const [gamePlayers, setGamePlayers] = useState({})
   const [filters, setFilters] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('discover_filters')) || { handicap: 'all', pace: 'all', holes: 'all', gamePace: 'all', distance: 'all' } }
-    catch { return { handicap: 'all', pace: 'all', holes: 'all', gamePace: 'all', distance: 'all' } }
+    try { return JSON.parse(localStorage.getItem('discover_filters')) || { handicap: 'all', pace: 'all', holes: 'all', gamePace: 'all', distance: 'all', sort: 'recent' } }
+    catch { return { handicap: 'all', pace: 'all', holes: 'all', gamePace: 'all', distance: 'all', sort: 'recent' } }
   })
   const [confirmWithdraw, setConfirmWithdraw] = useState(null)
   const [invitePlayer, setInvitePlayer] = useState(null)
   const [userLocation, setUserLocation] = useState(null)
+  const [deepLinkGame, setDeepLinkGame] = useState(null)
   const [refreshing, setRefreshing] = useState(false)
   const touchStartY = useRef(0)
 
@@ -442,6 +441,17 @@ export default function Discover({ user, userProfile, onNavigateTab }) {
     else fetchGames()
   }, [mode, filters, userLocation])
 
+  useEffect(() => {
+    if (!deepLinkGameId) return
+    supabase.from('round_listings')
+      .select('*, profiles(id, name, avatar_url, pace, cart_or_walk, handicap_range)')
+      .eq('id', deepLinkGameId)
+      .single()
+      .then(({ data }) => {
+        if (data) { setMode('games'); setDeepLinkGame(data) }
+      })
+  }, [deepLinkGameId])
+
   const fetchPlayers = async () => {
     setLoading(true)
     let query = supabase
@@ -456,11 +466,20 @@ export default function Discover({ user, userProfile, onNavigateTab }) {
     const { data } = await query.limit(30)
 
     // Flatten aggregates
-    const enriched = (data || []).map(p => ({
+    let enriched = (data || []).map(p => ({
       ...p,
       avg_rating: p.avg_rating?.[0]?.avg ?? null,
       rating_count: p.rating_count?.[0]?.count ?? 0,
     }))
+
+    if (filters.sort === 'rating') {
+      enriched = enriched.sort((a, b) => {
+        if (!a.avg_rating && !b.avg_rating) return 0
+        if (!a.avg_rating) return 1
+        if (!b.avg_rating) return -1
+        return b.avg_rating - a.avg_rating
+      })
+    }
 
     setPlayers(enriched)
     setLoading(false)
@@ -637,16 +656,12 @@ export default function Discover({ user, userProfile, onNavigateTab }) {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="page-header">
-        {/* Golf flag decoration */}
-        <svg className="absolute right-4 top-6 opacity-10" width="72" height="72" viewBox="0 0 72 72" fill="none">
-          <line x1="24" y1="8" x2="24" y2="64" stroke="white" strokeWidth="3" strokeLinecap="round"/>
-          <path d="M24 8 L58 20 L24 32 Z" fill="white"/>
-          <ellipse cx="24" cy="64" rx="14" ry="4" fill="white"/>
-        </svg>
-        <p className="text-white/60 text-xs font-semibold uppercase tracking-widest mb-1">SwingSwipe</p>
-        <h1 className="text-white text-2xl font-black mb-0.5">Find your round ⛳</h1>
-        <p className="text-white/70 text-xs mb-3">Browse players and open games near you</p>
+      <HeroHeader
+        eyebrow="SwingSwipe"
+        title="Find your round"
+        subtitle={`${mode === 'players' ? `${players.length || 'New'} golfers` : `${games.length || 'Open'} games`} near you`}
+        icon="🏌️"
+      >
         <div className="flex gap-2">
           <button
             onClick={() => setMode('players')}
@@ -661,7 +676,7 @@ export default function Discover({ user, userProfile, onNavigateTab }) {
             ⛳ Find a Game
           </button>
         </div>
-      </div>
+      </HeroHeader>
 
       {/* Filters for players */}
       {mode === 'players' && (
@@ -673,6 +688,16 @@ export default function Discover({ user, userProfile, onNavigateTab }) {
               className={`pill whitespace-nowrap text-xs py-1 ${filters.handicap === h ? 'pill-active' : 'pill-inactive'}`}
             >
               {h === 'all' ? 'All levels' : HANDICAP_LABELS[h]}
+            </button>
+          ))}
+          <div className="w-px bg-gray-200 shrink-0 self-stretch my-0.5" />
+          {[['recent', 'Recent'], ['rating', '⭐ Top rated']].map(([val, label]) => (
+            <button
+              key={val}
+              onClick={() => updateFilters(f => ({ ...f, sort: val }))}
+              className={`pill whitespace-nowrap text-xs py-1 ${filters.sort === val ? 'pill-active' : 'pill-inactive'}`}
+            >
+              {label}
             </button>
           ))}
         </div>
@@ -805,6 +830,28 @@ export default function Discover({ user, userProfile, onNavigateTab }) {
           onConfirm={handleWithdraw}
           onCancel={() => setConfirmWithdraw(null)}
         />
+      )}
+      {deepLinkGame && (
+        <Modal>
+        <>
+        <div className="fixed inset-0 bg-black/60 z-[60]" onClick={() => setDeepLinkGame(null)} />
+        <div className="fixed bottom-0 left-0 right-0 z-[60] bg-white rounded-t-[24px] p-5 max-h-[85vh] overflow-y-auto">
+          <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-4" />
+          <p className="text-xs text-[#1D9E75] font-bold uppercase tracking-wide mb-2">Open game</p>
+          <GameCard
+            game={{ ...deepLinkGame, distance: null }}
+            currentUserId={user.id}
+            userHandicap={userProfile?.handicap_range}
+            onRequest={(g) => { handleRequest(g); setDeepLinkGame(null) }}
+            onCancel={(g) => { handleCancelRequest(g); setDeepLinkGame(null) }}
+            onWithdraw={(g) => { setDeepLinkGame(null); setConfirmWithdraw(g) }}
+            onHostTap={(id) => { setDeepLinkGame(null); setViewingProfile(id) }}
+            requestStatus={requestStatus}
+            acceptedPlayers={gamePlayers[deepLinkGame.id]}
+          />
+        </div>
+        </>
+        </Modal>
       )}
     </div>
   )

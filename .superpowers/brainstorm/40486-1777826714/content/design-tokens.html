@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SwingSwipe Design Tokens</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #f5f5f5; font-family: -apple-system, 'Inter', sans-serif; color: #111; padding: 32px 24px 48px; }
+
+  .page-title { font-size: 22px; font-weight: 800; color: #111; margin-bottom: 4px; letter-spacing: -0.5px; }
+  .page-sub { color: #888; font-size: 13px; margin-bottom: 32px; }
+
+  .section { margin-bottom: 36px; }
+  .section-title { font-size: 11px; font-weight: 700; color: #aaa; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 14px; }
+
+  /* COLOR SWATCHES */
+  .swatches { display: flex; gap: 10px; flex-wrap: wrap; }
+  .swatch { border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1); width: 110px; }
+  .swatch-color { height: 60px; }
+  .swatch-info { background: #fff; padding: 8px 10px; }
+  .swatch-name { font-size: 11px; font-weight: 700; color: #111; }
+  .swatch-hex { font-size: 10px; color: #aaa; font-family: monospace; }
+
+  /* TYPOGRAPHY */
+  .type-row { background: #fff; border-radius: 12px; padding: 14px 16px; margin-bottom: 8px; display: flex; align-items: baseline; gap: 16px; }
+  .type-label { font-size: 10px; font-weight: 700; color: #aaa; text-transform: uppercase; letter-spacing: 0.5px; width: 100px; flex-shrink: 0; }
+  .type-sample { flex: 1; }
+
+  /* SHADOWS */
+  .shadow-row { display: flex; gap: 12px; flex-wrap: wrap; }
+  .shadow-box { background: #fff; border-radius: 12px; padding: 20px 24px; display: flex; flex-direction: column; align-items: center; gap: 8px; width: 140px; }
+  .shadow-label { font-size: 10px; font-weight: 700; color: #aaa; text-transform: uppercase; letter-spacing: 0.5px; text-align: center; }
+  .shadow-code { font-size: 9px; color: #ccc; font-family: monospace; text-align: center; }
+
+  /* RADIUS */
+  .radius-row { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; }
+  .radius-box { background: #fff; border: 2px solid #e5e5e5; display: flex; align-items: center; justify-content: center; }
+  .radius-wrap { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .radius-label { font-size: 10px; font-weight: 700; color: #888; }
+
+  /* COMPONENTS */
+  .components { display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-start; }
+  .component-box { background: #fff; border-radius: 14px; padding: 16px; box-shadow: 0 2px 12px rgba(0,0,0,0.07); }
+  .comp-label { font-size: 10px; font-weight: 700; color: #aaa; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; }
+
+  /* Buttons */
+  .btn-primary { background: #1D9E75; color: #fff; font-size: 13px; font-weight: 700; border-radius: 12px; padding: 10px 20px; border: none; cursor: pointer; }
+  .btn-secondary { background: #f4f4f4; color: #333; font-size: 13px; font-weight: 600; border-radius: 12px; padding: 10px 20px; border: none; cursor: pointer; }
+  .btn-outline { background: transparent; color: #1D9E75; font-size: 13px; font-weight: 700; border-radius: 12px; padding: 9px 20px; border: 1.5px solid #1D9E75; cursor: pointer; }
+  .btn-ghost { background: transparent; color: #ef4444; font-size: 13px; font-weight: 600; border-radius: 12px; padding: 10px 20px; border: none; cursor: pointer; }
+  .btn-pill-active { background: #111; color: #fff; font-size: 11px; font-weight: 700; border-radius: 20px; padding: 6px 14px; border: none; cursor: pointer; }
+  .btn-pill-inactive { background: #f4f4f4; color: #666; font-size: 11px; font-weight: 600; border-radius: 20px; padding: 6px 14px; border: none; cursor: pointer; }
+
+  /* Tags */
+  .tag-green { background: #e8f5ef; color: #1D9E75; font-size: 11px; font-weight: 600; border-radius: 10px; padding: 4px 10px; }
+  .tag-gray { background: #f2f2f2; color: #666; font-size: 11px; border-radius: 10px; padding: 4px 10px; }
+  .tag-orange { background: #fff3e8; color: #f97316; font-size: 11px; font-weight: 600; border-radius: 10px; padding: 4px 10px; }
+  .tag-red { background: #fef2f2; color: #ef4444; font-size: 11px; font-weight: 600; border-radius: 10px; padding: 4px 10px; }
+
+  /* Avatar */
+  .av { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; }
+
+  hr { border: none; border-top: 1px solid #eee; margin: 8px 0; }
+</style>
+</head>
+<body>
+
+<div class="page-title">SwingSwipe — Design System</div>
+<div class="page-sub">Tokens and components that every page will use.</div>
+
+<!-- COLOURS -->
+<div class="section">
+  <div class="section-title">Colour Palette</div>
+  <div class="swatches">
+    <div class="swatch">
+      <div class="swatch-color" style="background:linear-gradient(135deg,#064e35,#1D9E75,#34d399);"></div>
+      <div class="swatch-info"><div class="swatch-name">Brand Green</div><div class="swatch-hex">#1D9E75 (primary)</div></div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background:#064e35;"></div>
+      <div class="swatch-info"><div class="swatch-name">Deep Green</div><div class="swatch-hex">#064e35 (hero dark)</div></div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background:#e8f5ef;"></div>
+      <div class="swatch-info"><div class="swatch-name">Green Tint</div><div class="swatch-hex">#e8f5ef (tag bg)</div></div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background:#111111;"></div>
+      <div class="swatch-info"><div class="swatch-name">Near Black</div><div class="swatch-hex">#111 (headings)</div></div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background:#f7f8f7;"></div>
+      <div class="swatch-info"><div class="swatch-name">Surface</div><div class="swatch-hex">#f7f8f7 (page bg)</div></div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background:#ffffff;border:1px solid #eee;"></div>
+      <div class="swatch-info"><div class="swatch-name">Card</div><div class="swatch-hex">#fff (cards)</div></div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background:#f97316;"></div>
+      <div class="swatch-info"><div class="swatch-name">Accent Orange</div><div class="swatch-hex">#f97316 (alerts)</div></div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background:#ef4444;"></div>
+      <div class="swatch-info"><div class="swatch-name">Danger</div><div class="swatch-hex">#ef4444 (decline)</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- TYPOGRAPHY -->
+<div class="section">
+  <div class="section-title">Typography — Inter (already installed)</div>
+  <div class="type-row">
+    <div class="type-label">Hero Name</div>
+    <div class="type-sample" style="font-size:22px;font-weight:900;letter-spacing:-0.5px;color:#fff;background:linear-gradient(135deg,#064e35,#1D9E75);padding:8px 12px;border-radius:8px;">Arjun ⛳</div>
+  </div>
+  <div class="type-row">
+    <div class="type-label">Page Title</div>
+    <div class="type-sample" style="font-size:19px;font-weight:900;letter-spacing:-0.4px;color:#111;">My Games</div>
+  </div>
+  <div class="type-row">
+    <div class="type-label">Card Title</div>
+    <div class="type-sample" style="font-size:15px;font-weight:800;letter-spacing:-0.2px;color:#111;">Torrey Pines South</div>
+  </div>
+  <div class="type-row">
+    <div class="type-label">Body / Meta</div>
+    <div class="type-sample" style="font-size:12px;color:#888;">Sat · 7:30 AM · 2 spots left</div>
+  </div>
+  <div class="type-row">
+    <div class="type-label">Label / Cap</div>
+    <div class="type-sample" style="font-size:10px;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:0.8px;">Upcoming · 3 games</div>
+  </div>
+</div>
+
+<!-- BORDER RADIUS -->
+<div class="section">
+  <div class="section-title">Border Radius</div>
+  <div class="radius-row">
+    <div class="radius-wrap">
+      <div class="radius-box" style="width:40px;height:40px;border-radius:8px;"></div>
+      <div class="radius-label">8px<br/>chips/tags</div>
+    </div>
+    <div class="radius-wrap">
+      <div class="radius-box" style="width:60px;height:60px;border-radius:12px;"></div>
+      <div class="radius-label">12px<br/>buttons</div>
+    </div>
+    <div class="radius-wrap">
+      <div class="radius-box" style="width:80px;height:80px;border-radius:16px;"></div>
+      <div class="radius-label">16px<br/>cards</div>
+    </div>
+    <div class="radius-wrap">
+      <div class="radius-box" style="width:80px;height:80px;border-radius:24px;"></div>
+      <div class="radius-label">24px<br/>modals</div>
+    </div>
+    <div class="radius-wrap">
+      <div class="radius-box" style="width:50px;height:50px;border-radius:50%;"></div>
+      <div class="radius-label">50%<br/>avatars</div>
+    </div>
+  </div>
+</div>
+
+<!-- SHADOWS -->
+<div class="section">
+  <div class="section-title">Shadows</div>
+  <div class="shadow-row">
+    <div class="shadow-box" style="box-shadow:0 1px 3px rgba(0,0,0,0.06),0 1px 2px rgba(0,0,0,0.04);">
+      <div class="shadow-label">Card</div>
+      <div class="shadow-code">subtle<br/>always-on</div>
+    </div>
+    <div class="shadow-box" style="box-shadow:0 4px 16px rgba(0,0,0,0.10),0 1px 4px rgba(0,0,0,0.06);">
+      <div class="shadow-label">Elevated</div>
+      <div class="shadow-code">modals<br/>bottom nav</div>
+    </div>
+    <div class="shadow-box" style="box-shadow:0 0 0 3px rgba(29,158,117,0.2);">
+      <div class="shadow-label">Focus Ring</div>
+      <div class="shadow-code">inputs<br/>selected</div>
+    </div>
+  </div>
+</div>
+
+<!-- BUTTONS -->
+<div class="section">
+  <div class="section-title">Buttons</div>
+  <div class="components">
+    <div class="component-box">
+      <div class="comp-label">Actions</div>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <button class="btn-primary">Join Game</button>
+        <button class="btn-outline">Request to Join</button>
+        <button class="btn-secondary">Share 🔗</button>
+        <button class="btn-ghost">Withdraw</button>
+      </div>
+    </div>
+    <div class="component-box">
+      <div class="comp-label">Filter Chips</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;">
+        <button class="btn-pill-active">All</button>
+        <button class="btn-pill-inactive">This week</button>
+        <button class="btn-pill-inactive">Casual</button>
+        <button class="btn-pill-inactive">⭐ Top rated</button>
+      </div>
+      <hr style="margin:10px 0;">
+      <div style="display:flex;flex-wrap:wrap;gap:6px;">
+        <button class="btn-pill-inactive">Players</button>
+        <button class="btn-pill-active">Games</button>
+      </div>
+    </div>
+    <div class="component-box">
+      <div class="comp-label">Tags / Badges</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;">
+        <span class="tag-green">🏆 Competitive</span>
+        <span class="tag-gray">🚶 Walk</span>
+        <span class="tag-gray">80s shooter</span>
+        <span class="tag-orange">⚡ Fast pace</span>
+        <span class="tag-red">Full</span>
+        <span class="tag-green">2 spots open</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- AVATARS + SPOT INDICATOR -->
+<div class="section">
+  <div class="section-title">Avatar Spot Indicator (chosen: option B)</div>
+  <div class="component-box" style="display:inline-flex;flex-direction:column;gap:12px;">
+    <div class="comp-label">4-player game · 2 joined, 2 open</div>
+    <div style="display:flex;align-items:center;gap:0;">
+      <div class="av" style="background:#e8f5ef;color:#1D9E75;border:2.5px solid #fff;box-shadow:0 0 0 1.5px #1D9E75;z-index:4;">JK</div>
+      <div class="av" style="background:#fef3e8;color:#f97316;border:2.5px solid #fff;box-shadow:0 0 0 1.5px #f97316;margin-left:-8px;z-index:3;">TM</div>
+      <div class="av" style="background:#f5f5f5;border:2px dashed #ccc;color:#ccc;font-size:18px;margin-left:-8px;z-index:2;">+</div>
+      <div class="av" style="background:#f5f5f5;border:2px dashed #ccc;color:#ccc;font-size:18px;margin-left:-8px;z-index:1;">+</div>
+      <span style="font-size:11px;color:#aaa;margin-left:10px;">2 spots open</span>
+    </div>
+  </div>
+</div>
+
+<p style="color:#888;font-size:13px;text-align:center;margin-top:16px;">Does this palette, type scale, and component set look right? Say so in the terminal.</p>
+
+<script src="http://localhost:64275/helper.js"></script>
+</body>
+</html>
