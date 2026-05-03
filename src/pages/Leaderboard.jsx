@@ -66,7 +66,7 @@ export default function Leaderboard({ user, profile }) {
 
     const { data: rounds } = await supabase
       .from('round_logs')
-      .select('user_id, score, date, course_name')
+      .select('user_id, score, date, course')
       .in('user_id', memberIds)
       .gte('date', dateFilter)
       .order('date', { ascending: true })

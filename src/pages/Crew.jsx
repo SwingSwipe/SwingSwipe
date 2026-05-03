@@ -4,6 +4,7 @@ import Avatar from '../components/Avatar'
 import Modal from '../components/Modal'
 import RoundCard from '../components/RoundCard'
 import PublicProfileModal from '../components/PublicProfileModal'
+import Leaderboard from './Leaderboard'
 
 function CrewChat({ crew, currentUserId, onClose }) {
   const [messages, setMessages] = useState([])
@@ -200,6 +201,7 @@ export default function Crew({ user, userProfile, onFriendRequestsChange }) {
   const [loading, setLoading] = useState(true)
   const [activeChat, setActiveChat] = useState(null)
   const [showCrewModal, setShowCrewModal] = useState(false)
+  const [showLeaderboard, setShowLeaderboard] = useState(false)
   const [search, setSearch] = useState('')
   const [searchResults, setSearchResults] = useState([])
 
@@ -350,9 +352,14 @@ export default function Crew({ user, userProfile, onFriendRequestsChange }) {
             <h1 className="text-white text-2xl font-black mb-0.5">Crew 🤝</h1>
             <p className="text-white/70 text-xs">Friends, groups and who's playing</p>
           </div>
-          <button onClick={() => setShowCrewModal(true)} className="text-sm bg-white text-[#1D9E75] px-3 py-1.5 rounded-[10px] font-bold shadow-sm">
-            + Crew
-          </button>
+          <div className="flex gap-2">
+            <button onClick={() => setShowLeaderboard(true)} className="text-sm bg-white/20 text-white px-3 py-1.5 rounded-[10px] font-bold">
+              🏆
+            </button>
+            <button onClick={() => setShowCrewModal(true)} className="text-sm bg-white text-[#1D9E75] px-3 py-1.5 rounded-[10px] font-bold shadow-sm">
+              + Crew
+            </button>
+          </div>
         </div>
         <div className="flex gap-2">
           <input
@@ -504,6 +511,15 @@ export default function Crew({ user, userProfile, onFriendRequestsChange }) {
       {activeChat && <CrewChat crew={activeChat} currentUserId={user.id} onClose={() => setActiveChat(null)} />}
       {showCrewModal && <ManageCrewModal userId={user.id} onClose={() => setShowCrewModal(false)} onDone={fetchAll} />}
       {viewingProfile && <PublicProfileModal userId={viewingProfile} currentUserId={user.id} onClose={() => setViewingProfile(null)} />}
+      {showLeaderboard && (
+        <div className="fixed inset-0 z-50 bg-[#f0f2f0] flex flex-col">
+          <button onClick={() => setShowLeaderboard(false)}
+            className="absolute top-12 left-4 z-10 w-9 h-9 bg-white/20 rounded-full flex items-center justify-center text-white text-lg">
+            ←
+          </button>
+          <Leaderboard user={user} profile={userProfile} />
+        </div>
+      )}
     </div>
   )
 }
