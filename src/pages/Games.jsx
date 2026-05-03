@@ -313,11 +313,7 @@ export default function Games({ user }) {
           reqMap[r.listing_id].push(r)
         })
         setPendingRequests(reqMap)
-      } else {
-        setPendingRequests({})
       }
-    } else {
-      setPendingRequests({})
     }
 
     // Games I've joined
@@ -349,11 +345,7 @@ export default function Games({ user }) {
           confMap[r.listing_id].push(r)
         })
         setConfirmedPlayers(confMap)
-      } else {
-        setConfirmedPlayers({})
       }
-    } else {
-      setConfirmedPlayers({})
     }
 
     setMyGames(mine || [])
@@ -409,8 +401,7 @@ export default function Games({ user }) {
   }
 
   const handleAcceptInvite = async (invite) => {
-    const { error: inviteError } = await supabase.from('round_requests').update({ status: 'accepted' }).eq('id', invite.id)
-    if (inviteError) { showToast('Could not accept invite.'); return }
+    await supabase.from('round_requests').update({ status: 'accepted' }).eq('id', invite.id)
     const newFilled = (invite.round_listings.spots_filled || 1) + 1
     const isFull = newFilled >= invite.round_listings.spots_total
     await supabase.from('round_listings')
@@ -420,8 +411,7 @@ export default function Games({ user }) {
   }
 
   const handleDeclineInvite = async (inviteId) => {
-    const { error } = await supabase.from('round_requests').delete().eq('id', inviteId)
-    if (error) { showToast('Could not decline invite.'); return }
+    await supabase.from('round_requests').delete().eq('id', inviteId)
     fetchGames()
   }
 
@@ -452,10 +442,8 @@ export default function Games({ user }) {
       }
     }
 
-    const { error: requestDeleteError } = await supabase.from('round_requests').delete().eq('listing_id', game.id)
-    if (requestDeleteError) { showToast('Could not remove game requests.'); return }
-    const { error: listingDeleteError } = await supabase.from('round_listings').delete().eq('id', game.id)
-    if (listingDeleteError) { showToast('Could not delete game.'); return }
+    await supabase.from('round_requests').delete().eq('listing_id', game.id)
+    await supabase.from('round_listings').delete().eq('id', game.id)
     fetchGames()
   }
 
@@ -483,8 +471,7 @@ export default function Games({ user }) {
   }
 
   const handleConfirm = async (requestId) => {
-    const { error } = await supabase.from('round_requests').update({ confirmed: true }).eq('id', requestId)
-    if (error) { showToast('Could not confirm attendance.'); return }
+    await supabase.from('round_requests').update({ confirmed: true }).eq('id', requestId)
     fetchGames()
   }
 
