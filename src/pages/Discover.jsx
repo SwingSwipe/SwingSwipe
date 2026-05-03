@@ -391,7 +391,7 @@ function PlayerModal({ player, currentUserId, onClose, onInvite }) {
   )
 }
 
-export default function Discover({ user, userProfile }) {
+export default function Discover({ user, userProfile, onNavigateTab }) {
   const [mode, setMode] = useState('players')
   const [players, setPlayers] = useState([])
   const [games, setGames] = useState([])
@@ -694,8 +694,11 @@ export default function Discover({ user, userProfile }) {
           games.length === 0 ? (
             <div className="text-center py-14">
               <p className="text-5xl mb-3">⛳</p>
-              <p className="font-bold text-gray-700 text-lg">No open games</p>
-              <p className="text-sm text-gray-400 mt-2">Be the first — post your tee time in the Games tab.</p>
+              <p className="font-bold text-gray-700 text-lg">No open games yet</p>
+              <p className="text-sm text-gray-400 mt-2 mb-5">Be the first to post a tee time and find playing partners.</p>
+              <button onClick={() => onNavigateTab?.('games')} className="bg-[#1D9E75] text-white font-bold px-6 py-3 rounded-[12px] text-sm active:opacity-80">
+                Post a game ⛳
+              </button>
             </div>
           ) : (
             <>

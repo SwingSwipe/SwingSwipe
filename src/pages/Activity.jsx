@@ -16,7 +16,13 @@ export default function Activity({ user }) {
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => { fetchActivity() }, [])
+  useEffect(() => {
+    fetchActivity()
+    const channel = supabase.channel('activity-feed')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'round_requests' }, fetchActivity)
+      .subscribe()
+    return () => supabase.removeChannel(channel)
+  }, [])
 
   const fetchActivity = async () => {
     setLoading(true)

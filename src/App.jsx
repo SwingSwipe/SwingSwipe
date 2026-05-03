@@ -4,6 +4,7 @@ import { useAuth } from './hooks/useAuth'
 import { useProfile } from './hooks/useProfile'
 
 import BottomNav from './components/BottomNav'
+import Toast, { useToast } from './components/Toast'
 import Login from './pages/Login'
 import Signup from './pages/Signup'
 import Onboarding from './pages/Onboarding'
@@ -95,6 +96,7 @@ export default function App() {
   const [isPasswordRecovery, setIsPasswordRecovery] = useState(false)
   const [installPrompt, setInstallPrompt] = useState(null)
   const [showInstallBanner, setShowInstallBanner] = useState(false)
+  const { toast } = useToast()
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
@@ -259,7 +261,7 @@ export default function App() {
 
     const renderTab = () => {
       switch (activeTab) {
-        case 'discover': return <Discover user={user} userProfile={profile} />
+        case 'discover': return <Discover user={user} userProfile={profile} onNavigateTab={setActiveTab} />
         case 'games':    return <Games user={user} />
         case 'crew':     return <Crew user={user} onFriendRequestsChange={setCrewNotif} />
         case 'activity': return <Activity user={user} />
@@ -331,6 +333,7 @@ export default function App() {
 
   return (
     <>
+      <Toast toast={toast} />
       <DesktopBackground />
       <div className="hidden md:flex flex-col items-center" style={{ position: 'relative', zIndex: 10 }}>
         <div className="phone-wrapper">

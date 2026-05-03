@@ -56,7 +56,7 @@ function CrewChat({ crew, currentUserId, onClose }) {
 
   return (
     <Modal>
-    <div className="fixed inset-0 bg-brand-bg z-50 flex flex-col">
+    <div className="fixed inset-0 bg-[#f0f2f0] z-50 flex flex-col">
       <div className="bg-[#1a1a1a] text-white px-4 py-3 flex items-center gap-3">
         <button onClick={onClose} className="text-gray-400 text-lg">←</button>
         <div>

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../supabase'
+import { showToast } from '../components/Toast'
 import Avatar from '../components/Avatar'
 import Modal from '../components/Modal'
 import ConfirmSheet from '../components/ConfirmSheet'
@@ -240,6 +241,7 @@ function PostGameModal({ userId, onClose, onPosted }) {
     if (!form.course_name || !form.date || !form.tee_time) return
     setSaving(true)
     const { error } = await supabase.from('round_listings').insert({
+
       host_id: userId,
       course_name: form.course_name,
       date: form.date,
@@ -257,7 +259,8 @@ function PostGameModal({ userId, onClose, onPosted }) {
       lng: form.lng,
     })
     setSaving(false)
-    if (!error) { onPosted(); onClose() }
+    if (error) showToast('Failed to post game. Try again.')
+    else { onPosted(); onClose() }
   }
 
   return (
@@ -450,7 +453,8 @@ export default function Games({ user }) {
   }
 
   const handleAccept = async (requestId, listingId) => {
-    await supabase.from('round_requests').update({ status: 'accepted' }).eq('id', requestId)
+    const { error } = await supabase.from('round_requests').update({ status: 'accepted' }).eq('id', requestId)
+    if (error) { showToast('Failed to accept request.'); return }
     const { data: listing } = await supabase
       .from('round_listings').select('spots_total, spots_filled').eq('id', listingId).single()
     if (listing) {
@@ -464,8 +468,9 @@ export default function Games({ user }) {
   }
 
   const handleDecline = async (requestId) => {
-    await supabase.from('round_requests').update({ status: 'declined' }).eq('id', requestId)
-    fetchGames()
+    const { error } = await supabase.from('round_requests').update({ status: 'declined' }).eq('id', requestId)
+    if (error) showToast('Failed to decline request.')
+    else fetchGames()
   }
 
   const handleAcceptInvite = async (invite) => {
