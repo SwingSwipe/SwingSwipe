@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { supabase } from '../supabase'
 import Avatar from '../components/Avatar'
 import Modal from '../components/Modal'
 import ConfirmSheet from '../components/ConfirmSheet'
 import PublicProfileModal from '../components/PublicProfileModal'
+import { PlayerCardSkeleton, GameCardSkeleton } from '../components/Skeleton'
 
 const HANDICAP_LABELS = {
   beginner: 'Beginner',
@@ -407,6 +408,19 @@ export default function Discover({ user, userProfile, onNavigateTab }) {
   const [confirmWithdraw, setConfirmWithdraw] = useState(null)
   const [invitePlayer, setInvitePlayer] = useState(null)
   const [userLocation, setUserLocation] = useState(null)
+  const [refreshing, setRefreshing] = useState(false)
+  const touchStartY = useRef(0)
+
+  const onTouchStart = (e) => { touchStartY.current = e.touches[0].clientY }
+  const onTouchEnd = (e) => {
+    const scrollEl = e.currentTarget
+    const pulled = e.changedTouches[0].clientY - touchStartY.current
+    if (pulled > 60 && scrollEl.scrollTop === 0) {
+      setRefreshing(true)
+      const fn = mode === 'players' ? fetchPlayers : fetchGames
+      fn().finally(() => setRefreshing(false))
+    }
+  }
 
   const updateFilters = (fn) => setFilters(f => {
     const next = fn(f)
@@ -670,11 +684,18 @@ export default function Discover({ user, userProfile, onNavigateTab }) {
         </div>
       )}
 
-      <div className="flex-1 overflow-y-auto px-4 py-4 pb-24">
-        {loading ? (
-          <div className="flex items-center justify-center h-40">
-            <div className="w-6 h-6 border-2 border-[#1D9E75] border-t-transparent rounded-full animate-spin" />
+      <div className="flex-1 overflow-y-auto px-4 py-4 pb-24" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+        {refreshing && (
+          <div className="flex justify-center mb-2">
+            <div className="w-5 h-5 border-2 border-[#1D9E75] border-t-transparent rounded-full animate-spin" />
           </div>
+        )}
+        {loading ? (
+          <>
+            {Array.from({ length: 4 }).map((_, i) =>
+              mode === 'players' ? <PlayerCardSkeleton key={i} /> : <GameCardSkeleton key={i} />
+            )}
+          </>
         ) : mode === 'players' ? (
           players.length === 0 ? (
             <div className="text-center py-14">

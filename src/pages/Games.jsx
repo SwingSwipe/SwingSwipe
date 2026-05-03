@@ -1,10 +1,11 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { supabase } from '../supabase'
 import { showToast } from '../components/Toast'
 import Avatar from '../components/Avatar'
 import Modal from '../components/Modal'
 import ConfirmSheet from '../components/ConfirmSheet'
 import CourseInput from '../components/CourseInput'
+import { GameHostCardSkeleton } from '../components/Skeleton'
 
 const VIBE_LABELS = {
   casual: '😊 Casual',
@@ -383,6 +384,18 @@ export default function Games({ user }) {
   const [rateGame, setRateGame] = useState(null)
   const [confirmDelete, setConfirmDelete] = useState(null)
   const [ratePlayers, setRatePlayers] = useState([])
+  const [refreshing, setRefreshing] = useState(false)
+  const touchStartY = useRef(0)
+
+  const onTouchStart = (e) => { touchStartY.current = e.touches[0].clientY }
+  const onTouchEnd = (e) => {
+    const scrollEl = e.currentTarget
+    const pulled = e.changedTouches[0].clientY - touchStartY.current
+    if (pulled > 60 && scrollEl.scrollTop === 0) {
+      setRefreshing(true)
+      fetchGames().finally(() => setRefreshing(false))
+    }
+  }
 
   useEffect(() => { fetchGames() }, [])
 
@@ -604,11 +617,16 @@ export default function Games({ user }) {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 py-4 pb-24">
-        {loading ? (
-          <div className="flex items-center justify-center h-40">
-            <div className="w-6 h-6 border-2 border-[#1D9E75] border-t-transparent rounded-full animate-spin" />
+      <div className="flex-1 overflow-y-auto px-4 py-4 pb-24" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+        {refreshing && (
+          <div className="flex justify-center mb-2">
+            <div className="w-5 h-5 border-2 border-[#1D9E75] border-t-transparent rounded-full animate-spin" />
           </div>
+        )}
+        {loading ? (
+          <>
+            {Array.from({ length: 3 }).map((_, i) => <GameHostCardSkeleton key={i} />)}
+          </>
         ) : tab === 'mine' ? (
           <>
             {myGames.length === 0 ? (
