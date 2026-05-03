@@ -400,8 +400,10 @@ export default function Games({ user }) {
 
   const handleAcceptInvite = async (invite) => {
     await supabase.from('round_requests').update({ status: 'accepted' }).eq('id', invite.id)
+    const newFilled = (invite.round_listings.spots_filled || 1) + 1
+    const isFull = newFilled >= invite.round_listings.spots_total
     await supabase.from('round_listings')
-      .update({ spots_filled: (invite.round_listings.spots_filled || 1) + 1 })
+      .update({ spots_filled: newFilled, ...(isFull && { is_active: false }) })
       .eq('id', invite.listing_id)
     fetchGames()
   }
@@ -547,13 +549,15 @@ export default function Games({ user }) {
                 <p className="font-bold text-gray-700 text-lg">No games posted yet</p>
                 <p className="text-sm text-gray-400 mt-2">Book a tee time, then post it here to find players.</p>
               </div>
-            ) : (
-              myGames.map(game => {
+            ) : (() => {
+              const upcomingGames = myGames.filter(g => !isPast(g.date))
+              const pastGames = myGames.filter(g => isPast(g.date))
+              const renderGame = (game) => {
+                const isGamePast = isPast(game.date)
                 const requests = pendingRequests[game.id] || []
-                const past = isPast(game.date)
                 return (
                   <div key={game.id} className="card mb-4 overflow-hidden">
-                    <div className={`h-1.5 ${game.is_active && !past ? 'bg-[#1D9E75]' : 'bg-gray-300'}`} />
+                    <div className={`h-1.5 ${game.is_active && !isGamePast ? 'bg-[#1D9E75]' : 'bg-gray-300'}`} />
                     <div className="p-4">
                       <div className="flex items-start justify-between mb-1">
                         <div>
@@ -568,12 +572,11 @@ export default function Games({ user }) {
                             {game.pace && <span className="pill text-[10px] bg-orange-50 text-orange-500 py-0.5">{PACE_LABELS[game.pace]}</span>}
                           </div>
                         </div>
-                        <span className={`pill text-xs ${game.is_active && !past ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
-                          {past ? 'Played' : game.is_active ? `${game.spots_total - game.spots_filled} spots left` : 'Closed'}
+                        <span className={`pill text-xs ${game.is_active && !isGamePast ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                          {isGamePast ? 'Played' : game.is_active ? `${game.spots_total - game.spots_filled} spots left` : 'Closed'}
                         </span>
                       </div>
 
-                      {/* Pending requests */}
                       {requests.length > 0 && (
                         <div className="mt-3 mb-2">
                           <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">{requests.length} request{requests.length > 1 ? 's' : ''}</p>
@@ -597,7 +600,7 @@ export default function Games({ user }) {
                         <button onClick={() => setChatGame(game)} className="flex-1 py-2 bg-gray-100 rounded-[8px] text-sm font-semibold text-gray-700">
                           💬 Chat
                         </button>
-                        {past ? (
+                        {isGamePast ? (
                           <button onClick={() => openRateModal(game)} className="flex-1 py-2 bg-[#1D9E75]/10 rounded-[8px] text-sm font-semibold text-[#1D9E75]">
                             ⭐ Rate players
                           </button>
@@ -611,15 +614,13 @@ export default function Games({ user }) {
                             </button>
                           </>
                         )}
-                        {!past && confirmedPlayers[game.id]?.length > 0 && (() => {
+                        {!isGamePast && confirmedPlayers[game.id]?.length > 0 && (() => {
                           const conf = confirmedPlayers[game.id]
                           const confCount = conf.filter(r => r.confirmed).length
                           const unconfCount = conf.filter(r => !r.confirmed).length
                           return (
                             <div className="flex items-center justify-between mt-2 px-1">
-                              <p className="text-xs text-gray-400">
-                                {confCount}/{conf.length} confirmed
-                              </p>
+                              <p className="text-xs text-gray-400">{confCount}/{conf.length} confirmed</p>
                               {unconfCount > 0 && (
                                 <button onClick={() => handleRemindPlayers(game)} className="text-xs text-[#1D9E75] font-semibold">
                                   Remind {unconfCount} player{unconfCount > 1 ? 's' : ''} →
@@ -628,13 +629,28 @@ export default function Games({ user }) {
                             </div>
                           )
                         })()}
-
                       </div>
                     </div>
                   </div>
                 )
-              })
-            )}
+              }
+              return (
+                <>
+                  {upcomingGames.length > 0 && (
+                    <>
+                      <p className="section-label mb-3">Upcoming · {upcomingGames.length}</p>
+                      {upcomingGames.map(renderGame)}
+                    </>
+                  )}
+                  {pastGames.length > 0 && (
+                    <>
+                      <p className="section-label mb-3 mt-2">Past rounds · {pastGames.length}</p>
+                      {pastGames.map(renderGame)}
+                    </>
+                  )}
+                </>
+              )
+            })()}
           </>
         ) : (
           <>

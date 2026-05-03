@@ -614,8 +614,9 @@ export default function Discover({ user, userProfile, onNavigateTab }) {
     })
     await supabase.from('round_requests').delete()
       .eq('listing_id', game.id).eq('requester_id', user.id)
+    const newFilled = Math.max(0, game.spots_filled - 1)
     await supabase.from('round_listings')
-      .update({ spots_filled: Math.max(0, game.spots_filled - 1) })
+      .update({ spots_filled: newFilled, is_active: newFilled < game.spots_total })
       .eq('id', game.id)
     // Notify host that a spot opened up
     const date = new Date(game.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
@@ -719,10 +720,20 @@ export default function Discover({ user, userProfile, onNavigateTab }) {
           </>
         ) : mode === 'players' ? (
           players.length === 0 ? (
-            <div className="text-center py-14">
+            <div className="text-center py-14 px-4">
               <p className="text-5xl mb-3">🏌️</p>
-              <p className="font-bold text-gray-700 text-lg">No golfers yet</p>
-              <p className="text-sm text-gray-400 mt-2">SwingSwipe is just getting started — invite your golf crew and be one of the first.</p>
+              <p className="font-bold text-gray-700 text-lg">You're one of the first!</p>
+              <p className="text-sm text-gray-400 mt-2 mb-6">Invite your golf crew — the more players, the more games.</p>
+              <button
+                onClick={() => {
+                  const text = `Play golf with me on SwingSwipe ⛳\nFind games, join rounds, and track scores.\n${window.location.origin}`
+                  if (navigator.share) navigator.share({ title: 'SwingSwipe', text })
+                  else navigator.clipboard?.writeText(window.location.origin)
+                }}
+                className="bg-[#1D9E75] text-white font-bold px-6 py-3 rounded-[12px] text-sm active:opacity-80"
+              >
+                Invite golfers →
+              </button>
             </div>
           ) : (
             <>
