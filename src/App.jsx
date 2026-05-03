@@ -263,7 +263,7 @@ export default function App() {
       switch (activeTab) {
         case 'discover': return <Discover user={user} userProfile={profile} onNavigateTab={setActiveTab} />
         case 'games':    return <Games user={user} />
-        case 'crew':     return <Crew user={user} onFriendRequestsChange={setCrewNotif} />
+        case 'crew':     return <Crew user={user} userProfile={profile} onFriendRequestsChange={setCrewNotif} />
         case 'activity': return <Activity user={user} />
         case 'profile':  return <Profile user={user} />
         default:         return <Discover user={user} />

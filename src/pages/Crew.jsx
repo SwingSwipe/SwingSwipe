@@ -104,7 +104,8 @@ function CrewChat({ crew, currentUserId, onClose }) {
   )
 }
 
-function JoinCrewModal({ userId, onClose, onJoined }) {
+function ManageCrewModal({ userId, onClose, onDone }) {
+  const [tab, setTab] = useState('join')
   const [name, setName] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -127,7 +128,25 @@ function JoinCrewModal({ userId, onClose, onJoined }) {
 
     if (joinError) { setError('Already in this crew or something went wrong.'); setLoading(false); return }
 
-    onJoined()
+    onDone()
+    onClose()
+    setLoading(false)
+  }
+
+  const create = async () => {
+    if (!name.trim()) return
+    setLoading(true)
+    setError('')
+    const { data: crew, error: createError } = await supabase
+      .from('crews')
+      .insert({ name: name.trim(), created_by: userId })
+      .select('id')
+      .single()
+
+    if (createError) { setError('A crew with that name may already exist.'); setLoading(false); return }
+
+    await supabase.from('crew_members').insert({ crew_id: crew.id, user_id: userId })
+    onDone()
     onClose()
     setLoading(false)
   }
@@ -137,28 +156,39 @@ function JoinCrewModal({ userId, onClose, onJoined }) {
     <>
     <div className="fixed inset-0 bg-black/50 z-[60]" onClick={onClose} />
     <div className="fixed bottom-0 left-0 right-0 z-[60] bg-white rounded-t-[20px] p-6">
-        <div className="flex items-center justify-between mb-5">
-          <h2 className="text-lg font-bold">Join a Crew</h2>
-          <button onClick={onClose} className="text-gray-400 text-xl">×</button>
+        <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-4" />
+        <div className="flex gap-2 mb-5">
+          <button onClick={() => { setTab('create'); setError('') }}
+            className={`pill flex-1 py-1.5 font-bold ${tab === 'create' ? 'pill-active' : 'pill-inactive'}`}>
+            Create crew
+          </button>
+          <button onClick={() => { setTab('join'); setError('') }}
+            className={`pill flex-1 py-1.5 font-bold ${tab === 'join' ? 'pill-active' : 'pill-inactive'}`}>
+            Join crew
+          </button>
         </div>
-        <p className="text-sm text-gray-500 mb-4">Ask your friend for their crew name and enter it below.</p>
-        <input
-          className="input-field mb-3"
-          placeholder="Crew name"
-          value={name}
-          onChange={e => setName(e.target.value)}
-        />
-        {error && <p className="text-red-500 text-xs mb-3">{error}</p>}
-        <button onClick={join} className="btn-primary" disabled={loading}>
-          {loading ? 'Joining…' : 'Join Crew'}
-        </button>
+        {tab === 'join' ? (
+          <>
+            <p className="text-sm text-gray-500 mb-4">Ask your friend for their crew name and enter it below.</p>
+            <input className="input-field mb-3" placeholder="Crew name" value={name} onChange={e => setName(e.target.value)} />
+            {error && <p className="text-red-500 text-xs mb-3">{error}</p>}
+            <button onClick={join} className="btn-primary" disabled={loading}>{loading ? 'Joining…' : 'Join Crew'}</button>
+          </>
+        ) : (
+          <>
+            <p className="text-sm text-gray-500 mb-4">Create a crew and share the name with your playing partners so they can join.</p>
+            <input className="input-field mb-3" placeholder="Crew name (e.g. Saturday Boys)" value={name} onChange={e => setName(e.target.value)} />
+            {error && <p className="text-red-500 text-xs mb-3">{error}</p>}
+            <button onClick={create} className="btn-primary" disabled={loading}>{loading ? 'Creating…' : 'Create Crew ⛳'}</button>
+          </>
+        )}
       </div>
     </>
     </Modal>
   )
 }
 
-export default function Crew({ user, onFriendRequestsChange }) {
+export default function Crew({ user, userProfile, onFriendRequestsChange }) {
   const [crews, setCrews] = useState([])
   const [friends, setFriends] = useState([])
   const [listings, setListings] = useState([])
@@ -169,7 +199,7 @@ export default function Crew({ user, onFriendRequestsChange }) {
   const [viewingProfile, setViewingProfile] = useState(null)
   const [loading, setLoading] = useState(true)
   const [activeChat, setActiveChat] = useState(null)
-  const [showJoin, setShowJoin] = useState(false)
+  const [showCrewModal, setShowCrewModal] = useState(false)
   const [search, setSearch] = useState('')
   const [searchResults, setSearchResults] = useState([])
 
@@ -241,7 +271,18 @@ export default function Crew({ user, onFriendRequestsChange }) {
       requester_id: user.id,
       status: 'pending',
     })
-    if (!error) setRequestedListings(s => new Set([...s, listing.id]))
+    if (!error) {
+      setRequestedListings(s => new Set([...s, listing.id]))
+      const requesterName = userProfile?.name?.split(' ')[0] || 'Someone'
+      const date = new Date(listing.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+      supabase.functions.invoke('send-push', {
+        body: {
+          user_id: listing.host_id,
+          title: `${requesterName} wants to join your game ⛳`,
+          body: `${listing.course_name} · ${date}`,
+        },
+      })
+    }
   }
 
   const handleCancelJoinRequest = async (listing) => {
@@ -262,6 +303,14 @@ export default function Crew({ user, onFriendRequestsChange }) {
   const sendRequest = async (toId) => {
     await supabase.from('friend_requests').insert({ from_id: user.id, to_id: toId, status: 'pending' })
     setSentRequestIds(s => new Set([...s, toId]))
+    const senderName = userProfile?.name?.split(' ')[0] || 'Someone'
+    supabase.functions.invoke('send-push', {
+      body: {
+        user_id: toId,
+        title: `${senderName} added you on SwingSwipe 🤝`,
+        body: 'Tap to view their profile and accept.',
+      },
+    })
   }
 
   const acceptRequest = async (req) => {
@@ -301,8 +350,8 @@ export default function Crew({ user, onFriendRequestsChange }) {
             <h1 className="text-white text-2xl font-black mb-0.5">Crew 🤝</h1>
             <p className="text-white/70 text-xs">Friends, groups and who's playing</p>
           </div>
-          <button onClick={() => setShowJoin(true)} className="text-sm bg-white text-[#1D9E75] px-3 py-1.5 rounded-[10px] font-bold shadow-sm">
-            Join crew
+          <button onClick={() => setShowCrewModal(true)} className="text-sm bg-white text-[#1D9E75] px-3 py-1.5 rounded-[10px] font-bold shadow-sm">
+            + Crew
           </button>
         </div>
         <div className="flex gap-2">
@@ -453,7 +502,7 @@ export default function Crew({ user, onFriendRequestsChange }) {
       </div>
 
       {activeChat && <CrewChat crew={activeChat} currentUserId={user.id} onClose={() => setActiveChat(null)} />}
-      {showJoin && <JoinCrewModal userId={user.id} onClose={() => setShowJoin(false)} onJoined={fetchAll} />}
+      {showCrewModal && <ManageCrewModal userId={user.id} onClose={() => setShowCrewModal(false)} onDone={fetchAll} />}
       {viewingProfile && <PublicProfileModal userId={viewingProfile} currentUserId={user.id} onClose={() => setViewingProfile(null)} />}
     </div>
   )
