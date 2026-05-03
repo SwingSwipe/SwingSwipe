@@ -24,8 +24,10 @@
 
 @layer components {
   .app-surface {
-     bg-[#f0f2f0] text-[#1a1a1a];
+    background-color: #f0f2f0;
+    color: #1a1a1a;
   }
+
 
   /* Buttons */
   .btn-primary {
