@@ -15,7 +15,7 @@ function timeAgo(ts) {
   return `${Math.floor(h / 24)}d ago`
 }
 
-export default function Activity({ user, onNavigateTab }) {
+export default function Activity({ user }) {
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -119,14 +119,14 @@ export default function Activity({ user, onNavigateTab }) {
       const [{ data: inbound, error: inboundError }, { data: outbound, error: outboundError }] = await Promise.all([
         myListingIds.length
           ? supabase.from('round_requests')
-            .select('id, status, created_at, listing_id, requester_id, profiles(id, name, avatar_url)')
+              .select('id, status, created_at, listing_id, requester_id, profiles(id, name, avatar_url)')
               .in('listing_id', myListingIds)
               .in('status', ['pending', 'accepted', 'declined'])
               .order('created_at', { ascending: false })
               .limit(30)
           : Promise.resolve({ data: [], error: null }),
         supabase.from('round_requests')
-          .select('id, status, created_at, listing_id, invited_by, round_listings(course_name, date, profiles(id, name, avatar_url))')
+          .select('id, status, created_at, listing_id, invited_by, round_listings(course_name, date, profiles(name))')
           .eq('requester_id', user.id)
           .order('created_at', { ascending: false })
           .limit(30),
@@ -141,11 +141,11 @@ export default function Activity({ user, onNavigateTab }) {
         const name = r.profiles?.name?.split(' ')[0] || 'Someone'
         const course = listing?.course_name || 'your game'
         if (r.status === 'pending') {
-          events.push({ id: r.id, ts: r.created_at, avatar: r.profiles, emoji: '🙋', text: `${name} wants to join your game at ${course}`, type: 'inbound_pending', targetTab: 'games', cta: 'Review' })
+          events.push({ id: r.id, ts: r.created_at, avatar: r.profiles, emoji: '🙋', text: `${name} wants to join your game at ${course}`, type: 'inbound_pending' })
         } else if (r.status === 'accepted') {
-          events.push({ id: r.id + '_acc', ts: r.created_at, avatar: r.profiles, emoji: '✅', text: `You accepted ${name} into your game at ${course}`, type: 'inbound_accepted', targetTab: 'games', cta: 'Open' })
+          events.push({ id: r.id + '_acc', ts: r.created_at, avatar: r.profiles, emoji: '✅', text: `You accepted ${name} into your game at ${course}`, type: 'inbound_accepted' })
         } else if (r.status === 'declined') {
-          events.push({ id: r.id + '_dec', ts: r.created_at, avatar: r.profiles, emoji: '❌', text: `You declined ${name}'s request for ${course}`, type: 'inbound_declined', targetTab: 'games', cta: 'Open' })
+          events.push({ id: r.id + '_dec', ts: r.created_at, avatar: r.profiles, emoji: '❌', text: `You declined ${name}'s request for ${course}`, type: 'inbound_declined' })
         }
       })
 
@@ -155,13 +155,13 @@ export default function Activity({ user, onNavigateTab }) {
         const host = Array.isArray(listing?.profiles) ? listing.profiles[0] : listing?.profiles
         const hostName = host?.name?.split(' ')[0] || 'the host'
         if (r.status === 'invited') {
-          events.push({ id: r.id + '_inv', ts: r.created_at, avatar: host, emoji: '🎉', text: `You were invited to play at ${course}`, type: 'invited', targetTab: 'games', cta: 'Respond' })
+          events.push({ id: r.id + '_inv', ts: r.created_at, emoji: '🎉', text: `You were invited to play at ${course}`, type: 'invited' })
         } else if (r.status === 'pending') {
-          events.push({ id: r.id + '_out', ts: r.created_at, avatar: host, emoji: '⏳', text: `Waiting on ${hostName} for your request to join ${course}`, type: 'outbound_pending', targetTab: 'games', cta: 'Open' })
+          events.push({ id: r.id + '_out', ts: r.created_at, emoji: '⏳', text: `Waiting on ${hostName} for your request to join ${course}`, type: 'outbound_pending' })
         } else if (r.status === 'accepted') {
-          events.push({ id: r.id + '_oacc', ts: r.created_at, avatar: host, emoji: '⛳', text: `You're in! ${hostName} accepted your request to join ${course}`, type: 'outbound_accepted', targetTab: 'games', cta: 'Chat' })
+          events.push({ id: r.id + '_oacc', ts: r.created_at, emoji: '⛳', text: `You're in! ${hostName} accepted your request to join ${course}`, type: 'outbound_accepted' })
         } else if (r.status === 'declined') {
-          events.push({ id: r.id + '_odec', ts: r.created_at, avatar: host, emoji: '😔', text: `${hostName} declined your request to join ${course}`, type: 'outbound_declined', targetTab: 'games', cta: 'Open' })
+          events.push({ id: r.id + '_odec', ts: r.created_at, emoji: '😔', text: `${hostName} declined your request to join ${course}`, type: 'outbound_declined' })
         }
       })
 
@@ -232,12 +232,7 @@ export default function Activity({ user, onNavigateTab }) {
           </div>
         ) : (
           items.map(item => (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() => item.targetTab && onNavigateTab?.(item.targetTab)}
-              className="card card-press p-3 flex items-start gap-3 mb-3 w-full text-left"
-            >
+            <div key={item.id} className="card p-3 flex items-start gap-3 mb-3">
               <div className="relative shrink-0">
                 {item.avatar
                   ? <Avatar name={item.avatar.name} url={item.avatar.avatar_url} size={10} />
@@ -249,12 +244,7 @@ export default function Activity({ user, onNavigateTab }) {
                 <p className="text-sm text-gray-800 leading-snug">{item.text}</p>
                 <p className="text-xs text-gray-400 mt-0.5">{timeAgo(item.ts)}</p>
               </div>
-              {item.cta && (
-                <span className="shrink-0 text-[11px] font-black text-[#1D9E75] bg-[#e8f5ef] px-2 py-1 rounded-[8px] mt-1">
-                  {item.cta}
-                </span>
-              )}
-            </button>
+            </div>
           ))
         )}
       </div>
