@@ -49,6 +49,33 @@ function formatTime(timeStr) {
   return `${h12}:${m} ${ampm}`
 }
 
+function FoursomeStrip({ host, total = 4, filled = 1 }) {
+  const occupied = Math.min(total, Math.max(1, filled))
+  const open = Math.max(0, total - occupied)
+
+  return (
+    <div className="bg-[#1D9E75]/5 rounded-[12px] px-3 py-2 mb-3 flex items-center justify-between">
+      <div className="flex items-center">
+        <div className="flex -space-x-1.5">
+          <Avatar name={host?.name} url={host?.avatar_url} size={7} />
+          {Array.from({ length: Math.max(0, occupied - 1) }).map((_, idx) => (
+            <div key={`filled-${idx}`} className="w-7 h-7 rounded-full bg-gray-200 border-2 border-white flex items-center justify-center text-[10px] font-bold text-gray-500">
+              ?
+            </div>
+          ))}
+          {Array.from({ length: open }).map((_, idx) => (
+            <div key={`open-${idx}`} className="w-7 h-7 rounded-full bg-white border-2 border-dashed border-[#1D9E75]/35 flex items-center justify-center text-xs font-black text-[#1D9E75]">
+              +
+            </div>
+          ))}
+        </div>
+        <p className="ml-3 text-xs font-bold text-gray-600">{occupied}/{total} players</p>
+      </div>
+      <p className="text-[10px] font-bold text-[#1D9E75] uppercase tracking-wide">{open > 0 ? `${open} open` : 'Full'}</p>
+    </div>
+  )
+}
+
 export default function RoundCard({ listing, onJoin, onCancel, currentUserId, onChat, requested }) {
   const spotsLeft = listing.spots_total - listing.spots_filled
   const isHost = listing.host_id === currentUserId
@@ -74,6 +101,12 @@ export default function RoundCard({ listing, onJoin, onCancel, currentUserId, on
         <Avatar name={listing.profiles?.name} url={listing.profiles?.avatar_url} size={7} />
         <span className="text-sm text-gray-600">{listing.profiles?.name || 'Unknown'}</span>
       </div>
+
+      <FoursomeStrip
+        host={listing.profiles}
+        total={listing.spots_total || 4}
+        filled={listing.spots_filled || 1}
+      />
 
       <div className="flex flex-wrap gap-1.5 mb-3">
         {listing.holes && (

@@ -50,6 +50,39 @@ function StarRating({ score, count }) {
   )
 }
 
+function FoursomeStrip({ host, players = [], total = 4, filled }) {
+  const knownPlayers = [
+    ...(host ? [{ ...host, id: host.id || 'host' }] : []),
+    ...players,
+  ].slice(0, total)
+  const occupied = Math.min(total, Math.max(filled || knownPlayers.length, knownPlayers.length))
+  const open = Math.max(0, total - occupied)
+
+  return (
+    <div className="bg-[#1D9E75]/5 rounded-[12px] px-3 py-2 mb-3 flex items-center justify-between">
+      <div className="flex items-center">
+        <div className="flex -space-x-1.5">
+          {knownPlayers.map((p, idx) => (
+            <Avatar key={p.id || `${p.name}-${idx}`} name={p.name} url={p.avatar_url} size={7} />
+          ))}
+          {Array.from({ length: Math.max(0, occupied - knownPlayers.length) }).map((_, idx) => (
+            <div key={`anon-${idx}`} className="w-7 h-7 rounded-full bg-gray-200 border-2 border-white flex items-center justify-center text-[10px] font-bold text-gray-500">
+              ?
+            </div>
+          ))}
+          {Array.from({ length: open }).map((_, idx) => (
+            <div key={`open-${idx}`} className="w-7 h-7 rounded-full bg-white border-2 border-dashed border-[#1D9E75]/35 flex items-center justify-center text-xs font-black text-[#1D9E75]">
+              +
+            </div>
+          ))}
+        </div>
+        <p className="ml-3 text-xs font-bold text-gray-600">{occupied}/{total} players</p>
+      </div>
+      <p className="text-[10px] font-bold text-[#1D9E75] uppercase tracking-wide">{open > 0 ? `${open} open` : 'Full'}</p>
+    </div>
+  )
+}
+
 function PlayerCard({ player, onTap }) {
   return (
     <div onClick={() => onTap(player)} className="card feed-card p-4 mb-3 cursor-pointer active:opacity-80">
@@ -132,6 +165,13 @@ function GameCard({ game, currentUserId, userHandicap, onRequest, onCancel, onWi
           </div>
         </div>
 
+        <FoursomeStrip
+          host={game.profiles}
+          players={acceptedPlayers || []}
+          total={game.spots_total || 4}
+          filled={game.spots_filled || 1}
+        />
+
         <button
           onClick={() => !isOwn && onHostTap?.(game.host_id)}
           className={`flex items-start gap-2.5 mb-3 w-full text-left ${!isOwn ? 'active:opacity-70' : ''}`}
@@ -172,22 +212,6 @@ function GameCard({ game, currentUserId, userHandicap, onRequest, onCancel, onWi
             </div>
           </div>
         </button>
-
-        {/* Accepted players */}
-        {acceptedPlayers?.length > 0 && (
-          <div className="flex items-center gap-2 mb-3">
-            <div className="flex -space-x-1.5">
-              {acceptedPlayers.slice(0, 4).map(p => (
-                <Avatar key={p.id} name={p.name} url={p.avatar_url} size={6} />
-              ))}
-            </div>
-            <p className="text-xs text-gray-400">
-              {acceptedPlayers.length === 1
-                ? `${acceptedPlayers[0].name?.split(' ')[0]} joined`
-                : `${acceptedPlayers.length} players joined`}
-            </p>
-          </div>
-        )}
 
         <div className="flex flex-wrap gap-1.5 mb-3">
           {game.holes && (

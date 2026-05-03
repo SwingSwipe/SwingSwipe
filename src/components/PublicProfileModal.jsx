@@ -9,6 +9,18 @@ const VIBE_LABELS = { bread_game: '🍞 Bread game', casual: '😊 Casual', comp
 
 const REPORT_REASONS = ['No-show', 'Slow play', 'Inappropriate behavior', 'Spam / fake profile', 'Other']
 
+function profileStrength(profile) {
+  const checks = [
+    Boolean(profile.avatar_url),
+    Boolean(profile.handicap_range || profile.avg_score),
+    Boolean(profile.pace),
+    Boolean(profile.cart_or_walk),
+    Boolean(profile.home_course || profile.location),
+    Boolean(profile.vibe_tags?.length),
+  ]
+  return checks.filter(Boolean).length
+}
+
 export default function PublicProfileModal({ userId, currentUserId, onClose }) {
   const [profile, setProfile] = useState(null)
   const [reputation, setReputation] = useState(null)
@@ -99,6 +111,21 @@ export default function PublicProfileModal({ userId, currentUserId, onClose }) {
                 <div className="bg-gray-50 rounded-[12px] p-3 text-center">
                   <p className="font-bold text-[#1D9E75]">{profile.avg_score || '—'}</p>
                   <p className="text-xs text-gray-400 mt-0.5">Avg score</p>
+                </div>
+              </div>
+
+              <div className="bg-[#1D9E75]/5 border border-[#1D9E75]/10 rounded-[12px] p-3 mb-5">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs font-bold text-gray-600 uppercase tracking-wide">Trust snapshot</p>
+                  <span className="text-xs font-black text-[#1D9E75]">{profileStrength(profile)}/6 set</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <p className="text-gray-600">{profile.pace ? PACE_LABELS[profile.pace] : 'Pace not set'}</p>
+                  <p className="text-gray-600">
+                    {profile.cart_or_walk === 'cart' ? 'Cart player' : profile.cart_or_walk === 'walking' ? 'Walks' : profile.cart_or_walk === 'either' ? 'Cart or walk' : 'Cart/walk not set'}
+                  </p>
+                  <p className="text-gray-600">{profile.home_course || profile.location || 'Area not set'}</p>
+                  <p className="text-gray-600">{reputation?.count ? `${reputation.count} rating${reputation.count !== 1 ? 's' : ''}` : 'New reputation'}</p>
                 </div>
               </div>
 
