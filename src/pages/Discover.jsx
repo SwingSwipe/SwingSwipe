@@ -617,6 +617,15 @@ export default function Discover({ user, userProfile, onNavigateTab }) {
     await supabase.from('round_listings')
       .update({ spots_filled: Math.max(0, game.spots_filled - 1) })
       .eq('id', game.id)
+    // Notify host that a spot opened up
+    const date = new Date(game.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+    supabase.functions.invoke('send-push', {
+      body: {
+        user_id: game.host_id,
+        title: `${firstName} withdrew — spot is open ⛳`,
+        body: `${game.course_name} · ${date} now has an open spot.`,
+      },
+    })
     fetchGames()
   }
 

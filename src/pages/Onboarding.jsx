@@ -37,6 +37,7 @@ const STEPS = [
 export default function Onboarding({ user, onComplete }) {
   const [step, setStep] = useState(0)
   const [saving, setSaving] = useState(false)
+  const [done, setDone] = useState(false)
   const [data, setData] = useState({
     name: '',
     avatar_url: '',
@@ -84,7 +85,42 @@ export default function Onboarding({ user, onComplete }) {
       bio_prompt: data.bio_prompt,
     })
     setSaving(false)
-    if (!error) onComplete()
+    if (!error) setDone(true)
+  }
+
+  if (done) {
+    return (
+      <div className="min-h-screen bg-[#1D9E75] flex flex-col items-center justify-between px-6 pt-16 pb-10">
+        <div className="flex-1 flex flex-col items-center justify-center text-center w-full max-w-xs">
+          <div className="w-20 h-20 bg-white/20 rounded-[24px] flex items-center justify-center text-5xl mb-5">🎉</div>
+          <h1 className="text-white text-3xl font-black mb-2">You're in!</h1>
+          <p className="text-white/80 text-sm mb-8">Here's a quick look at the app:</p>
+          <div className="space-y-3 w-full">
+            {[
+              ['🔍', 'Discover', 'Browse players and open games near you'],
+              ['⛳', 'Games', 'Post your tee time, manage requests, game chat'],
+              ['🤝', 'Crew', 'Friends, group chats, and crew standings'],
+              ['🔔', 'Activity', 'All your notifications in one place'],
+              ['👤', 'Profile', 'Log rounds, track stats, build your rep'],
+            ].map(([icon, tab, desc]) => (
+              <div key={tab} className="flex items-center gap-3 bg-white/15 rounded-[14px] px-4 py-3 text-left">
+                <span className="text-xl shrink-0">{icon}</span>
+                <div>
+                  <p className="text-white font-bold text-sm">{tab}</p>
+                  <p className="text-white/70 text-xs">{desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+        <button
+          onClick={onComplete}
+          className="w-full max-w-xs py-4 bg-white rounded-[14px] text-[#1D9E75] font-black text-base active:opacity-80"
+        >
+          Start playing →
+        </button>
+      </div>
+    )
   }
 
   const currentStep = STEPS[step - 1]

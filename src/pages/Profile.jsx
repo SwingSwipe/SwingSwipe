@@ -193,6 +193,7 @@ export default function Profile({ user }) {
   const [profile, setProfile] = useState(null)
   const [stats, setStats] = useState(null)
   const [reputation, setReputation] = useState(null)
+  const [recentRounds, setRecentRounds] = useState([])
   const [loading, setLoading] = useState(true)
   const [showEdit, setShowEdit] = useState(false)
   const [showLogRound, setShowLogRound] = useState(false)
@@ -204,9 +205,10 @@ export default function Profile({ user }) {
     const { data: prof } = await supabase.from('profiles').select('*').eq('id', user.id).single()
     setProfile(prof)
 
-    // Round stats
-    const { data: rounds } = await supabase.from('round_logs').select('score')
+    // Round stats + recent history
+    const { data: rounds } = await supabase.from('round_logs').select('id, score, course, date, holes')
       .eq('user_id', user.id).gte('date', `${new Date().getFullYear()}-01-01`)
+      .order('date', { ascending: false })
     if (rounds?.length) {
       const scores = rounds.map(r => r.score)
       setStats({
@@ -214,6 +216,9 @@ export default function Profile({ user }) {
         avg: Math.round(scores.reduce((a, b) => a + b, 0) / scores.length * 10) / 10,
         best: Math.min(...scores),
       })
+      setRecentRounds(rounds.slice(0, 5))
+    } else {
+      setRecentRounds([])
     }
 
     // Reputation
@@ -405,6 +410,35 @@ export default function Profile({ user }) {
             )}
           </div>
         </div>
+
+        {/* Recent rounds */}
+        {recentRounds.length > 0 && (
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <p className="section-label">Recent rounds</p>
+              <button onClick={() => setShowLogRound(true)} className="text-xs font-bold text-[#1D9E75] bg-[#1D9E75]/10 px-2.5 py-1 rounded-[8px]">
+                + Log
+              </button>
+            </div>
+            <div className="card divide-y divide-gray-50">
+              {recentRounds.map(r => (
+                <div key={r.id} className="flex items-center justify-between px-4 py-3">
+                  <div>
+                    <p className="text-sm font-semibold text-gray-800 truncate max-w-[180px]">{r.course}</p>
+                    <p className="text-xs text-gray-400 mt-0.5">
+                      {new Date(r.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                      {r.holes && ` · ${r.holes} holes`}
+                    </p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="text-lg font-black text-[#1D9E75]">{r.score}</p>
+                    <p className="text-[10px] text-gray-400">strokes</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Sign out */}
         <button onClick={handleSignOut} className="w-full py-3 text-sm text-red-400 font-semibold">
