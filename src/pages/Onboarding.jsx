@@ -12,11 +12,11 @@ const HANDICAP_OPTIONS = [
 ]
 
 const VIBE_OPTIONS = [
-  { value: 'bread_game', label: '🍞 Bread game' },
-  { value: 'casual', label: '😊 Casual' },
-  { value: 'competitive', label: '🏆 Competitive' },
-  { value: 'social', label: '🤝 Social' },
-  { value: 'practice_focused', label: '🎯 Practice focused' },
+  { value: 'bread_game', label: '🍞 Bread game', sub: 'Friendly wager' },
+  { value: 'casual', label: '😊 Casual', sub: 'Easy round' },
+  { value: 'competitive', label: '🏆 Competitive', sub: 'Play to score' },
+  { value: 'social', label: '🤝 Social', sub: 'Meet golfers' },
+  { value: 'practice_focused', label: '🎯 Practice', sub: 'Work on game' },
 ]
 
 const AVAIL_OPTIONS = [
@@ -27,17 +27,18 @@ const AVAIL_OPTIONS = [
 ]
 
 const STEPS = [
-  { emoji: '👋', title: "What's your name?" },
-  { emoji: '📍', title: 'Where do you play?' },
-  { emoji: '⛳', title: 'Your game' },
-  { emoji: '⏱️', title: 'How do you like to play?' },
-  { emoji: '✌️', title: 'Your golf vibe' },
+  { emoji: '👋', title: 'Build your golfer card', sub: 'A real name and photo help people trust requests.' },
+  { emoji: '📍', title: 'Where do you play?', sub: 'This powers nearby games and course-based matching.' },
+  { emoji: '⛳', title: 'Your game', sub: 'Skill level keeps rounds comfortable for everyone.' },
+  { emoji: '⏱️', title: 'Your pace', sub: 'Pace and cart preference prevent awkward mismatches.' },
+  { emoji: '✌️', title: 'Your golf vibe', sub: 'Tell people what kind of round they are joining.' },
 ]
 
 export default function Onboarding({ user, onComplete }) {
   const [step, setStep] = useState(0)
   const [saving, setSaving] = useState(false)
   const [done, setDone] = useState(false)
+  const [error, setError] = useState('')
   const [data, setData] = useState({
     name: '',
     avatar_url: '',
@@ -68,8 +69,18 @@ export default function Onboarding({ user, onComplete }) {
   const next = () => setStep(s => s + 1)
   const back = () => setStep(s => s - 1)
 
+  const completionCount = [
+    data.name.trim(),
+    data.home_course || data.location,
+    data.handicap_range,
+    data.pace,
+    data.cart_or_walk,
+    data.vibe_tags.length,
+  ].filter(Boolean).length
+
   const handleFinish = async () => {
     setSaving(true)
+    setError('')
     const { error } = await supabase.from('profiles').upsert({
       id: user.id,
       name: data.name.trim(),
@@ -86,6 +97,7 @@ export default function Onboarding({ user, onComplete }) {
     })
     setSaving(false)
     if (!error) setDone(true)
+    else setError('Could not save your golfer card. Try again.')
   }
 
   if (done) {
@@ -134,9 +146,9 @@ export default function Onboarding({ user, onComplete }) {
           <p className="text-white/80 text-lg font-semibold mb-4">Find golfers to play with,<br />right near you.</p>
           <div className="space-y-3 mt-4 w-full max-w-xs">
             {[
-              ['🏌️', 'Browse open games and join in seconds'],
-              ['👥', 'Post your tee time and fill your group'],
-              ['⭐', 'Rate rounds and build your reputation'],
+              ['🏌️', 'Match by skill, pace, vibe, and course'],
+              ['👥', 'Post tee times and fill your foursome'],
+              ['⭐', 'Build trust with ratings after rounds'],
             ].map(([emoji, text]) => (
               <div key={text} className="flex items-center gap-3 bg-white/15 rounded-[14px] px-4 py-3">
                 <span className="text-xl">{emoji}</span>
@@ -166,10 +178,14 @@ export default function Onboarding({ user, onComplete }) {
       </div>
 
       <div className="flex-1 flex flex-col px-6 pt-10 pb-6 max-w-sm mx-auto w-full">
-        <p className="text-xs text-gray-400 mb-2 font-medium tracking-wide uppercase">Step {step} of {STEPS.length}</p>
+        <div className="flex items-center justify-between mb-2">
+          <p className="text-xs text-gray-400 font-medium tracking-wide uppercase">Step {step} of {STEPS.length}</p>
+          <p className="text-xs font-bold text-[#1D9E75]">{completionCount}/6 card signals</p>
+        </div>
         <div className="mb-8">
           <span className="text-4xl mb-3 block">{currentStep.emoji}</span>
           <h2 className="text-2xl font-black text-gray-900">{currentStep.title}</h2>
+          <p className="text-sm text-gray-500 mt-2 leading-snug">{currentStep.sub}</p>
         </div>
 
         {/* Step 1 — Name */}
@@ -189,6 +205,11 @@ export default function Onboarding({ user, onComplete }) {
               autoFocus
             />
             <p className="text-xs text-gray-400">This is how other golfers will see you.</p>
+            <div className="bg-white rounded-[12px] p-3 border border-gray-100">
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-1">Preview</p>
+              <p className="text-sm font-bold text-gray-800">{data.name || 'Your name'}</p>
+              <p className="text-xs text-gray-400 mt-0.5">New golfer card</p>
+            </div>
           </div>
         )}
 
@@ -207,7 +228,11 @@ export default function Onboarding({ user, onComplete }) {
               onChange={v => set('home_course', v)}
             />
             <p className="text-xs text-gray-400">Used to find rounds near you.</p>
-            <button onClick={next} className="text-xs text-[#1D9E75] font-semibold self-start">Skip for now →</button>
+            <div className="bg-white rounded-[12px] p-3 border border-gray-100">
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-1">Match signal</p>
+              <p className="text-sm text-gray-700">Nearby games work best when your city or home course is set.</p>
+            </div>
+            <button onClick={next} className="text-xs text-[#1D9E75] font-semibold self-start">Skip location for now →</button>
           </div>
         )}
 
@@ -238,6 +263,7 @@ export default function Onboarding({ user, onComplete }) {
               value={data.avg_score}
               onChange={e => set('avg_score', e.target.value)}
             />
+            <p className="text-xs text-gray-400 mt-2">Players will see your range, not a formal handicap.</p>
           </div>
         )}
 
@@ -250,7 +276,7 @@ export default function Onboarding({ user, onComplete }) {
                 {[
                   { value: 'fast', label: '⚡ Fast', sub: 'Under 4 hrs' },
                   { value: 'moderate', label: '🚶 Moderate', sub: '4–4.5 hrs' },
-                  { value: 'relaxed', label: '😌 Relaxed', sub: 'No rush' },
+                  { value: 'relaxed', label: '😌 Relaxed', sub: '4.5+ hrs' },
                 ].map(p => (
                   <button
                     key={p.value}
@@ -304,9 +330,10 @@ export default function Onboarding({ user, onComplete }) {
                       if (data.vibe_tags.includes(v.value)) toggleArray('vibe_tags', v.value)
                       else if (data.vibe_tags.length < 3) toggleArray('vibe_tags', v.value)
                     }}
-                    className={`pill ${data.vibe_tags.includes(v.value) ? 'pill-active' : 'pill-inactive'}`}
+                    className={`px-3 py-2 rounded-[10px] text-left border transition-all ${data.vibe_tags.includes(v.value) ? 'bg-[#1D9E75] text-white border-[#1D9E75]' : 'bg-white text-gray-700 border-gray-200'}`}
                   >
-                    {v.label}
+                    <span className="block text-xs font-bold">{v.label}</span>
+                    <span className={`block text-[10px] mt-0.5 ${data.vibe_tags.includes(v.value) ? 'text-white/70' : 'text-gray-400'}`}>{v.sub}</span>
                   </button>
                 ))}
               </div>
@@ -322,8 +349,17 @@ export default function Onboarding({ user, onComplete }) {
                 onChange={e => set('bio_prompt', e.target.value)}
               />
             </div>
+            <div className="bg-white rounded-[12px] p-3 border border-gray-100">
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-1">Your card</p>
+              <p className="text-sm font-bold text-gray-800">{data.name || 'Golfer'}</p>
+              <p className="text-xs text-gray-500 mt-1">
+                {[data.handicap_range && HANDICAP_OPTIONS.find(h => h.value === data.handicap_range)?.label, data.pace && `${data.pace} pace`, data.cart_or_walk && (data.cart_or_walk === 'walking' ? 'walks' : data.cart_or_walk)].filter(Boolean).join(' · ') || 'Add a few details to help people match with you.'}
+              </p>
+            </div>
           </div>
         )}
+
+        {error && <p className="text-sm text-red-500 font-semibold mt-3">{error}</p>}
 
         {/* Navigation */}
         <div className="flex gap-3 mt-auto pt-6">
