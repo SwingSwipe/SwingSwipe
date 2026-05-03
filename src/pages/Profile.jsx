@@ -5,6 +5,66 @@ import AvatarUpload from '../components/AvatarUpload'
 import Modal from '../components/Modal'
 import CourseInput from '../components/CourseInput'
 
+function LogRoundModal({ userId, onClose, onSaved }) {
+  const today = new Date().toISOString().split('T')[0]
+  const [form, setForm] = useState({ course: '', date: today, score: '', holes: '18' })
+  const [saving, setSaving] = useState(false)
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
+
+  const save = async () => {
+    if (!form.course || !form.date || !form.score) return
+    setSaving(true)
+    await supabase.from('round_logs').insert({
+      user_id: userId,
+      course: form.course,
+      date: form.date,
+      score: parseInt(form.score),
+      holes: parseInt(form.holes),
+    })
+    setSaving(false)
+    onSaved()
+    onClose()
+  }
+
+  return (
+    <Modal>
+    <>
+    <div className="fixed inset-0 bg-black/60 z-[60]" onClick={onClose} />
+    <div className="fixed bottom-0 left-0 right-0 z-[60] bg-white rounded-t-[24px] p-6">
+      <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-4" />
+      <h2 className="text-lg font-black mb-1">Log a round ⛳</h2>
+      <p className="text-sm text-gray-400 mb-5">Add it to your season stats</p>
+      <div className="space-y-3">
+        <CourseInput placeholder="Course played" value={form.course} onChange={v => set('course', v)} />
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <label className="text-xs text-gray-500 mb-1 block">Date</label>
+            <input className="input-field" type="date" value={form.date} onChange={e => set('date', e.target.value)} />
+          </div>
+          <div>
+            <label className="text-xs text-gray-500 mb-1 block">Score</label>
+            <input className="input-field" type="number" placeholder="e.g. 87" value={form.score} onChange={e => set('score', e.target.value)} inputMode="numeric" />
+          </div>
+        </div>
+        <div>
+          <label className="text-xs text-gray-500 mb-1.5 block">Holes</label>
+          <div className="flex gap-2">
+            {[['9', '9 holes'], ['18', '18 holes']].map(([v, l]) => (
+              <button key={v} onClick={() => set('holes', v)}
+                className={`pill flex-1 py-1.5 ${form.holes === v ? 'pill-active' : 'pill-inactive'}`}>{l}</button>
+            ))}
+          </div>
+        </div>
+        <button onClick={save} className="btn-primary" disabled={saving || !form.course || !form.score}>
+          {saving ? 'Saving…' : 'Save round'}
+        </button>
+      </div>
+    </div>
+    </>
+    </Modal>
+  )
+}
+
 const HANDICAP_LABELS = { beginner: 'Beginner', '90s': '90s shooter', '80s': '80s shooter', '70s': '70s shooter', scratch: 'Scratch' }
 const PACE_LABELS = { fast: '⚡ Fast', moderate: '🚶 Moderate', relaxed: '😌 Relaxed' }
 const VIBE_LABELS = { bread_game: '🍞 Bread game', casual: '😊 Casual', competitive: '🏆 Competitive', social: '🤝 Social', practice_focused: '🎯 Practice focused' }
@@ -135,6 +195,7 @@ export default function Profile({ user }) {
   const [reputation, setReputation] = useState(null)
   const [loading, setLoading] = useState(true)
   const [showEdit, setShowEdit] = useState(false)
+  const [showLogRound, setShowLogRound] = useState(false)
 
   useEffect(() => { fetchProfile() }, [])
 
@@ -262,9 +323,14 @@ export default function Profile({ user }) {
 
       <div className="flex-1 overflow-y-auto px-4 py-4 pb-24 space-y-4">
         {/* Stats */}
-        {stats && (
-          <div>
+        <div>
+          <div className="flex items-center justify-between mb-2">
             <p className="section-label">This season</p>
+            <button onClick={() => setShowLogRound(true)} className="text-xs font-bold text-[#1D9E75] bg-[#1D9E75]/10 px-2.5 py-1 rounded-[8px]">
+              + Log round
+            </button>
+          </div>
+          {stats ? (
             <div className="grid grid-cols-3 gap-3">
               <div className="card p-3 text-center">
                 <p className="text-xl font-black text-[#1D9E75]">{stats.count}</p>
@@ -279,8 +345,17 @@ export default function Profile({ user }) {
                 <p className="text-xs text-gray-500 mt-0.5">Best round</p>
               </div>
             </div>
-          </div>
-        )}
+          ) : (
+            <button onClick={() => setShowLogRound(true)} className="w-full card p-4 flex items-center gap-3 active:opacity-80">
+              <div className="w-10 h-10 bg-[#1D9E75]/10 rounded-full flex items-center justify-center text-xl shrink-0">⛳</div>
+              <div className="text-left">
+                <p className="font-bold text-sm text-gray-800">Log your first round</p>
+                <p className="text-xs text-gray-400 mt-0.5">Track your scores and see season stats</p>
+              </div>
+              <span className="ml-auto text-gray-300 text-lg">›</span>
+            </button>
+          )}
+        </div>
 
         {/* Golfer card */}
         <div>
@@ -339,6 +414,9 @@ export default function Profile({ user }) {
 
       {showEdit && (
         <EditProfileModal profile={profile} onClose={() => setShowEdit(false)} onSaved={fetchProfile} />
+      )}
+      {showLogRound && (
+        <LogRoundModal userId={user.id} onClose={() => setShowLogRound(false)} onSaved={fetchProfile} />
       )}
     </div>
   )
