@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../supabase'
 import Avatar from '../components/Avatar'
 import { ActivityItemSkeleton } from '../components/Skeleton'
+import RatePlayersModal from '../components/RatePlayersModal'
 
 function timeAgo(ts) {
   const diff = Date.now() - new Date(ts).getTime()
@@ -16,19 +17,81 @@ function timeAgo(ts) {
 export default function Activity({ user }) {
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)
+  const [unratedGames, setUnratedGames] = useState([])
+  const [rateGame, setRateGame] = useState(null)
+  const [ratePlayers, setRatePlayers] = useState([])
 
   useEffect(() => {
     fetchActivity()
+    fetchUnratedGames()
     const channel = supabase.channel('activity-feed')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'round_requests' }, fetchActivity)
       .subscribe()
     return () => supabase.removeChannel(channel)
   }, [])
 
+  const fetchUnratedGames = async () => {
+    const sevenDaysAgo = new Date()
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
+    const cutoff = sevenDaysAgo.toISOString().split('T')[0]
+    const today = new Date().toISOString().split('T')[0]
+
+    // Games I hosted that have passed
+    const { data: hosted } = await supabase
+      .from('round_listings')
+      .select('id, course_name, date, tee_time')
+      .eq('host_id', user.id)
+      .lt('date', today)
+      .gte('date', cutoff)
+
+    // Games I joined that have passed
+    const { data: joined } = await supabase
+      .from('round_requests')
+      .select('listing_id, round_listings(id, course_name, date, tee_time, host_id)')
+      .eq('requester_id', user.id)
+      .eq('status', 'accepted')
+
+    const joinedPast = joined
+      ?.map(r => r.round_listings)
+      .filter(g => g && g.date < today && g.date >= cutoff) || []
+
+    const allGames = [
+      ...(hosted || []),
+      ...joinedPast,
+    ]
+
+    if (!allGames.length) { setUnratedGames([]); return }
+
+    // Check which ones I've already rated
+    const gameIds = allGames.map(g => g.id)
+    const { data: existingRatings } = await supabase
+      .from('player_ratings')
+      .select('listing_id')
+      .eq('rater_id', user.id)
+      .in('listing_id', gameIds)
+
+    const ratedIds = new Set(existingRatings?.map(r => r.listing_id) || [])
+    setUnratedGames(allGames.filter(g => !ratedIds.has(g.id)))
+  }
+
+  const openRateModal = async (game) => {
+    const { data: reqs } = await supabase
+      .from('round_requests')
+      .select('profiles(id, name, avatar_url)')
+      .eq('listing_id', game.id)
+      .eq('status', 'accepted')
+
+    const players = reqs?.map(r => r.profiles).filter(Boolean) || []
+    const { data: host } = await supabase.from('profiles').select('id, name, avatar_url').eq('id', game.host_id || user.id).single()
+    if (host) players.push(host)
+
+    setRatePlayers(players)
+    setRateGame(game)
+  }
+
   const fetchActivity = async () => {
     setLoading(true)
 
-    // Requests on MY listings
     const { data: myListings } = await supabase
       .from('round_listings')
       .select('id, course_name, date')
@@ -56,7 +119,6 @@ export default function Activity({ user }) {
 
     const events = []
 
-    // Inbound requests on my games
     inbound?.forEach(r => {
       const listing = listingMap[r.listing_id]
       const name = r.profiles?.name?.split(' ')[0] || 'Someone'
@@ -70,7 +132,6 @@ export default function Activity({ user }) {
       }
     })
 
-    // Outbound — my requests and invites
     outbound?.forEach(r => {
       const course = r.round_listings?.course_name || 'a game'
       const hostName = r.round_listings?.profiles?.name?.split(' ')[0] || 'the host'
@@ -110,6 +171,26 @@ export default function Activity({ user }) {
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 py-4 pb-24">
+        {/* Rate prompts */}
+        {unratedGames.length > 0 && (
+          <div className="mb-4">
+            {unratedGames.map(game => (
+              <div key={game.id} className="card mb-3 p-4 border-l-4 border-yellow-400 flex items-center justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold text-gray-800">⭐ Rate your round at {game.course_name}</p>
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    {new Date(game.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                    {game.tee_time && ` · ${game.tee_time.slice(0, 5)}`}
+                  </p>
+                </div>
+                <button onClick={() => openRateModal(game)} className="shrink-0 bg-yellow-400 text-white font-bold text-xs px-3 py-2 rounded-[8px] active:opacity-80">
+                  Rate now
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
         {loading ? (
           Array.from({ length: 6 }).map((_, i) => <ActivityItemSkeleton key={i} />)
         ) : items.length === 0 ? (
@@ -136,6 +217,18 @@ export default function Activity({ user }) {
           ))
         )}
       </div>
+
+      {rateGame && (
+        <RatePlayersModal
+          listing={rateGame}
+          currentUserId={user.id}
+          players={ratePlayers}
+          onClose={() => setRateGame(null)}
+          onDone={() => {
+            setUnratedGames(g => g.filter(x => x.id !== rateGame.id))
+          }}
+        />
+      )}
     </div>
   )
 }
