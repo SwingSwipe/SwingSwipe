@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { Component, useState, useEffect } from 'react'
 import { supabase, isSupabaseConfigured } from './supabase'
 import { useAuth } from './hooks/useAuth'
 import { useProfile } from './hooks/useProfile'
@@ -85,11 +85,45 @@ function DesktopBackground() {
   )
 }
 
+class TabErrorBoundary extends Component {
+  constructor(props) {
+    super(props)
+    this.state = { error: null }
+  }
+
+  static getDerivedStateFromError(error) {
+    return { error }
+  }
+
+  componentDidUpdate(prevProps) {
+    if (prevProps.tabKey !== this.props.tabKey && this.state.error) {
+      this.setState({ error: null })
+    }
+  }
+
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="h-full app-surface flex items-center justify-center px-6 text-center">
+          <div className="card p-5 max-w-xs">
+            <p className="text-4xl mb-3">⛳</p>
+            <p className="font-black text-gray-900">That tab hit an error</p>
+            <p className="text-sm text-gray-500 mt-2">Switch tabs and come back, or refresh the preview.</p>
+          </div>
+        </div>
+      )
+    }
+
+    return this.props.children
+  }
+}
+
 export default function App() {
   const { user, loading: authLoading } = useAuth()
   const { profile, loading: profileLoading } = useProfile(user?.id)
   const [authView, setAuthView] = useState('login')
   const [activeTab, setActiveTab] = useState('discover')
+  const [deepLinkGameId] = useState(() => new URLSearchParams(window.location.search).get('game'))
   const [gameNotif, setGameNotif] = useState(0)
   const [crewNotif, setCrewNotif] = useState(0)
   const [activityNotif, setActivityNotif] = useState(0)
@@ -173,7 +207,7 @@ export default function App() {
 
   // Game-day reminder: fire a local notification if tee time is within 3 hours
   useEffect(() => {
-    if (!user || Notification.permission !== 'granted') return
+    if (!user || !('Notification' in window) || Notification.permission !== 'granted') return
     const check = async () => {
       const today = new Date().toISOString().split('T')[0]
       const { data } = await supabase
@@ -232,7 +266,7 @@ export default function App() {
         if (listing?.host_id === user.id) {
           setGameNotif(n => n + 1)
           setActivityNotif(n => n + 1)
-          if (Notification.permission === 'granted') {
+          if ('Notification' in window && Notification.permission === 'granted') {
             new Notification('New join request ⛳', {
               body: `Someone wants to join your game at ${listing.course_name}`,
               icon: '/icon-192.png',
@@ -260,7 +294,7 @@ export default function App() {
             .from('round_listings').select('course_name').eq('id', payload.new.listing_id).single()
           const title = "You're in! 🎉"
           const body = `Your request to join ${listing?.course_name || 'the game'} was accepted`
-          if (Notification.permission === 'granted') {
+          if ('Notification' in window && Notification.permission === 'granted') {
             new Notification(title, { body, icon: '/icon-192.png' })
           } else {
             sendPush(user.id, title, body)
@@ -273,7 +307,7 @@ export default function App() {
 
   const renderContent = () => {
     if (!isSupabaseConfigured) return (
-      <div className="h-full bg-[#f0f2f0] flex flex-col items-center justify-center px-6 text-center">
+      <div className="h-full app-surface flex flex-col items-center justify-center px-6 text-center">
         <div className="w-16 h-16 bg-[#1D9E75] rounded-[16px] flex items-center justify-center mb-4 shadow-lg">
           <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
             <circle cx="16" cy="10" r="5" fill="white" opacity="0.9"/>
@@ -287,7 +321,7 @@ export default function App() {
     )
 
     if (authLoading || (user && profileLoading)) return (
-      <div className="h-full bg-[#f0f2f0] flex items-center justify-center">
+      <div className="h-full app-surface flex items-center justify-center">
         <div className="flex flex-col items-center gap-3">
           <div className="w-10 h-10 bg-[#1D9E75] rounded-[12px] flex items-center justify-center shadow-lg">
             <svg width="22" height="22" viewBox="0 0 32 32" fill="none">
@@ -309,10 +343,10 @@ export default function App() {
 
     const renderTab = () => {
       switch (activeTab) {
-        case 'discover': return <Discover user={user} userProfile={profile} onNavigateTab={setActiveTab} />
+        case 'discover': return <Discover user={user} userProfile={profile} onNavigateTab={setActiveTab} deepLinkGameId={deepLinkGameId} />
         case 'games':    return <Games user={user} />
         case 'crew':     return <Crew user={user} userProfile={profile} onFriendRequestsChange={setCrewNotif} />
-        case 'activity': return <Activity user={user} />
+        case 'activity': return <Activity user={user} onNavigateTab={setActiveTab} />
         case 'profile':  return <Profile user={user} />
         default:         return <Discover user={user} />
       }
@@ -320,7 +354,11 @@ export default function App() {
 
     return (
       <>
-        <div className="flex-1 overflow-hidden relative">{renderTab()}</div>
+        <div className="flex-1 overflow-hidden relative">
+          <TabErrorBoundary tabKey={activeTab}>
+            {renderTab()}
+          </TabErrorBoundary>
+        </div>
         <BottomNav
           activeTab={activeTab}
           onTabChange={(tab) => {
@@ -386,7 +424,7 @@ export default function App() {
       <div className="hidden md:flex flex-col items-center" style={{ position: 'relative', zIndex: 10 }}>
         <div className="phone-wrapper">
           <div className="phone-device">
-            <div className="flex flex-col md:h-full bg-[#f0f2f0] overflow-hidden">
+            <div className="flex flex-col md:h-full app-surface overflow-hidden">
               {renderContent()}
             </div>
           </div>
@@ -409,7 +447,7 @@ export default function App() {
       </div>
       {/* Mobile: no frame wrapper needed */}
       <div className="md:hidden w-full">
-        <div className="flex flex-col h-screen bg-[#f0f2f0] overflow-hidden">
+        <div className="flex flex-col h-screen app-surface overflow-hidden">
           {renderContent()}
         </div>
       </div>
