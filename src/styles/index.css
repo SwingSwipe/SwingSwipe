@@ -23,6 +23,10 @@
 }
 
 @layer components {
+  .app-surface {
+     bg-[#f0f2f0] text-[#1a1a1a];
+  }
+
   /* Buttons */
   .btn-primary {
     @apply bg-[#1D9E75] text-white font-semibold py-3 px-6 rounded-[10px] w-full text-center transition-all active:opacity-80 active:scale-[0.98] shadow-sm;
