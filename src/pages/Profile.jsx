@@ -422,17 +422,29 @@ export default function Profile({ user }) {
             </div>
             <div className="card divide-y divide-gray-50">
               {recentRounds.map(r => (
-                <div key={r.id} className="flex items-center justify-between px-4 py-3">
-                  <div>
+                <div key={r.id} className="flex items-center justify-between px-4 py-3 group">
+                  <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-gray-800 truncate max-w-[180px]">{r.course}</p>
                     <p className="text-xs text-gray-400 mt-0.5">
                       {new Date(r.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                       {r.holes && ` · ${r.holes} holes`}
                     </p>
                   </div>
-                  <div className="text-right shrink-0">
-                    <p className="text-lg font-black text-[#1D9E75]">{r.score}</p>
-                    <p className="text-[10px] text-gray-400">strokes</p>
+                  <div className="flex items-center gap-3 shrink-0">
+                    <div className="text-right">
+                      <p className="text-lg font-black text-[#1D9E75]">{r.score}</p>
+                      <p className="text-[10px] text-gray-400">strokes</p>
+                    </div>
+                    <button
+                      onClick={async () => {
+                        if (!confirm('Delete this round?')) return
+                        await supabase.from('round_logs').delete().eq('id', r.id)
+                        fetchProfile()
+                      }}
+                      className="w-7 h-7 flex items-center justify-center text-gray-300 hover:text-red-400 active:text-red-500 transition-colors"
+                    >
+                      ✕
+                    </button>
                   </div>
                 </div>
               ))}
@@ -440,10 +452,22 @@ export default function Profile({ user }) {
           </div>
         )}
 
-        {/* Sign out */}
-        <button onClick={handleSignOut} className="w-full py-3 text-sm text-red-400 font-semibold">
-          Sign out
-        </button>
+        {/* Invite + sign out */}
+        <div className="space-y-2">
+          <button
+            onClick={() => {
+              const text = `Play golf with me on SwingSwipe ⛳\nFind games, join rounds, track your scores.\n${window.location.origin}`
+              if (navigator.share) navigator.share({ title: 'SwingSwipe — find golfers near you', text })
+              else navigator.clipboard?.writeText(window.location.origin)
+            }}
+            className="w-full py-3 text-sm font-semibold text-[#1D9E75] bg-[#1D9E75]/8 rounded-[12px] active:opacity-70"
+          >
+            ⛳ Invite a golfer
+          </button>
+          <button onClick={handleSignOut} className="w-full py-3 text-sm text-red-400 font-semibold">
+            Sign out
+          </button>
+        </div>
       </div>
 
       {showEdit && (

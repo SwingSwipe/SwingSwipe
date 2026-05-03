@@ -219,6 +219,18 @@ export default function Crew({ user, userProfile, onFriendRequestsChange }) {
     ])
 
     const crewList = crewRes.data?.map(r => r.crews).filter(Boolean) || []
+
+    // Fetch member counts for each crew
+    if (crewList.length) {
+      const { data: counts } = await supabase
+        .from('crew_members')
+        .select('crew_id')
+        .in('crew_id', crewList.map(c => c.id))
+      const countMap = {}
+      counts?.forEach(r => { countMap[r.crew_id] = (countMap[r.crew_id] || 0) + 1 })
+      crewList.forEach(c => { c.memberCount = countMap[c.id] || 1 })
+    }
+
     setCrews(crewList)
 
     const ids = friendRes.data?.map(f => f.friend_id) || []
@@ -459,7 +471,10 @@ export default function Crew({ user, userProfile, onFriendRequestsChange }) {
                   {crews.map(crew => (
                     <div key={crew.id} className="card p-4">
                       <div className="flex items-center justify-between mb-2">
-                        <p className="font-semibold text-sm">{crew.name}</p>
+                        <div>
+                          <p className="font-semibold text-sm">{crew.name}</p>
+                          <p className="text-xs text-gray-400">{crew.memberCount || 1} member{crew.memberCount !== 1 ? 's' : ''}</p>
+                        </div>
                         <button onClick={() => setActiveChat(crew)}
                           className="text-sm bg-[#1D9E75] text-white px-3 py-1.5 rounded-[8px] font-semibold">
                           Chat 💬
