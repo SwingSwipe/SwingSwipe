@@ -1,5 +1,5 @@
-const CACHE = 'swingswipe-v1'
-const STATIC = ['/', '/index.html', '/manifest.json']
+const CACHE = 'swingswipe-v2'
+const STATIC = ['/manifest.json', '/icon-192.png']
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(STATIC)))
@@ -35,6 +35,19 @@ self.addEventListener('notificationclick', e => {
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return
   if (e.request.url.includes('supabase') || e.request.url.includes('anthropic')) return
+
+  if (e.request.mode === 'navigate') {
+    e.respondWith(
+      fetch(e.request)
+        .then(res => {
+          const clone = res.clone()
+          caches.open(CACHE).then(c => c.put('/index.html', clone))
+          return res
+        })
+        .catch(() => caches.match('/index.html'))
+    )
+    return
+  }
 
   e.respondWith(
     caches.match(e.request).then(cached => {
