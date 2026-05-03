@@ -4,6 +4,7 @@ import Avatar from '../components/Avatar'
 import Modal from '../components/Modal'
 import ConfirmSheet from '../components/ConfirmSheet'
 import PublicProfileModal from '../components/PublicProfileModal'
+import { showToast } from '../components/Toast'
 import { PlayerCardSkeleton, GameCardSkeleton } from '../components/Skeleton'
 import HeroHeader from '../components/HeroHeader'
 import SpotCircles from '../components/SpotCircles'
@@ -513,7 +514,7 @@ export default function Discover({ user, userProfile, onNavigateTab, deepLinkGam
     if (filters.distance !== 'all' && userLocation) {
       const miles = parseInt(filters.distance)
       data = data.filter(g => {
-        if (!g.lat || !g.lng) return true
+        if (!g.lat || !g.lng) return false
         return haversine(userLocation.lat, userLocation.lng, g.lat, g.lng) <= miles
       })
     }
@@ -565,6 +566,9 @@ export default function Discover({ user, userProfile, onNavigateTab, deepLinkGam
           g.profiles.rating = hostRatingMap[g.host_id]
         }
       })
+    } else {
+      setRequestStatus({})
+      setGamePlayers({})
     }
 
     setGames(data || [])
@@ -601,6 +605,8 @@ export default function Discover({ user, userProfile, onNavigateTab, deepLinkGam
           body: `${game.course_name} · ${date}${game.tee_time ? ` · ${game.tee_time.slice(0, 5)}` : ''}`,
         },
       })
+    } else {
+      showToast('Could not send request. Try again.')
     }
   }
 
@@ -616,6 +622,8 @@ export default function Discover({ user, userProfile, onNavigateTab, deepLinkGam
         delete next[game.id]
         return next
       })
+    } else {
+      showToast('Could not cancel request. Try again.')
     }
   }
 
@@ -631,8 +639,13 @@ export default function Discover({ user, userProfile, onNavigateTab, deepLinkGam
       user_id: user.id,
       content: `📢 ${firstName} has withdrawn — a spot is now open.`,
     })
-    await supabase.from('round_requests').delete()
+    const { error: deleteError } = await supabase.from('round_requests').delete()
       .eq('listing_id', game.id).eq('requester_id', user.id)
+    if (deleteError) {
+      showToast('Could not withdraw. Try again.')
+      fetchGames()
+      return
+    }
     const newFilled = Math.max(0, game.spots_filled - 1)
     await supabase.from('round_listings')
       .update({ spots_filled: newFilled, is_active: newFilled < game.spots_total })

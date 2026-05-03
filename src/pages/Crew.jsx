@@ -6,6 +6,7 @@ import RoundCard from '../components/RoundCard'
 import PublicProfileModal from '../components/PublicProfileModal'
 import Leaderboard from './Leaderboard'
 import HeroHeader from '../components/HeroHeader'
+import { showToast } from '../components/Toast'
 
 function CrewChat({ crew, currentUserId, onClose }) {
   const [messages, setMessages] = useState([])
@@ -297,6 +298,8 @@ export default function Crew({ user, userProfile, onFriendRequestsChange }) {
           body: `${listing.course_name} · ${date}`,
         },
       })
+    } else {
+      showToast('Could not request this game. Try again.')
     }
   }
 
@@ -312,11 +315,14 @@ export default function Crew({ user, userProfile, onFriendRequestsChange }) {
         next.delete(listing.id)
         return next
       })
+    } else {
+      showToast('Could not cancel request. Try again.')
     }
   }
 
   const sendRequest = async (toId) => {
-    await supabase.from('friend_requests').insert({ from_id: user.id, to_id: toId, status: 'pending' })
+    const { error } = await supabase.from('friend_requests').insert({ from_id: user.id, to_id: toId, status: 'pending' })
+    if (error) { showToast('Could not send friend request.'); return }
     setSentRequestIds(s => new Set([...s, toId]))
     const senderName = userProfile?.name?.split(' ')[0] || 'Someone'
     supabase.functions.invoke('send-push', {
@@ -329,11 +335,13 @@ export default function Crew({ user, userProfile, onFriendRequestsChange }) {
   }
 
   const acceptRequest = async (req) => {
-    await supabase.from('friend_requests').update({ status: 'accepted' }).eq('id', req.id)
-    await supabase.from('friends').insert([
+    const { error: acceptError } = await supabase.from('friend_requests').update({ status: 'accepted' }).eq('id', req.id)
+    if (acceptError) { showToast('Could not accept request.'); return }
+    const { error: friendError } = await supabase.from('friends').insert([
       { user_id: user.id, friend_id: req.from_id },
       { user_id: req.from_id, friend_id: user.id },
     ])
+    if (friendError) { showToast('Could not add friend.'); return }
     const myName = userProfile?.name?.split(' ')[0] || 'Someone'
     supabase.functions.invoke('send-push', {
       body: {
@@ -346,7 +354,8 @@ export default function Crew({ user, userProfile, onFriendRequestsChange }) {
   }
 
   const declineRequest = async (reqId) => {
-    await supabase.from('friend_requests').update({ status: 'declined' }).eq('id', reqId)
+    const { error } = await supabase.from('friend_requests').update({ status: 'declined' }).eq('id', reqId)
+    if (error) { showToast('Could not decline request.'); return }
     setIncomingRequests(r => r.filter(x => x.id !== reqId))
     onFriendRequestsChange?.(incomingRequests.length - 1)
   }

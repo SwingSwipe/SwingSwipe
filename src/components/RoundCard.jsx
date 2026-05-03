@@ -50,7 +50,7 @@ function formatTime(timeStr) {
   return `${h12}:${m} ${ampm}`
 }
 
-export default function RoundCard({ listing, onJoin, onCancel, currentUserId, onChat, requested }) {
+export default function RoundCard({ listing, onJoin, onCancel, currentUserId, onChat, requested, onHostTap }) {
   const spotsLeft = listing.spots_total - listing.spots_filled
   const isHost = listing.host_id === currentUserId
   const isFull = spotsLeft === 0
@@ -72,10 +72,15 @@ export default function RoundCard({ listing, onJoin, onCancel, currentUserId, on
         </div>
       </div>
 
-      <div className="flex items-center gap-2 mb-3">
+      <button
+        type="button"
+        onClick={() => !isHost && onHostTap?.(listing.host_id)}
+        className={`flex items-center gap-2 mb-3 w-full text-left ${!isHost ? 'active:opacity-70' : ''}`}
+      >
         <Avatar name={listing.profiles?.name} url={listing.profiles?.avatar_url} size={7} />
         <span className="text-sm text-gray-600">{listing.profiles?.name || 'Unknown'}</span>
-      </div>
+        {!isHost && <span className="ml-auto text-[10px] text-gray-400">tap profile →</span>}
+      </button>
 
       <div className="bg-[#f7faf7] rounded-[14px] px-3 py-2 mb-3 flex items-center justify-between">
         <SpotCircles
