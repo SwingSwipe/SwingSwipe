@@ -48,6 +48,18 @@ export function GameCardSkeleton() {
   )
 }
 
+export function ActivityItemSkeleton() {
+  return (
+    <div className="flex items-start gap-3 mb-4">
+      <Bone className="w-10 h-10 rounded-full shrink-0" />
+      <div className="flex-1 space-y-1.5 pt-1">
+        <Bone className="h-3.5 w-full" />
+        <Bone className="h-3 w-20" />
+      </div>
+    </div>
+  )
+}
+
 export function GameHostCardSkeleton() {
   return (
     <div className="card mb-4 overflow-hidden">

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../supabase'
 import Avatar from '../components/Avatar'
+import { ActivityItemSkeleton } from '../components/Skeleton'
 
 function timeAgo(ts) {
   const diff = Date.now() - new Date(ts).getTime()
@@ -110,9 +111,7 @@ export default function Activity({ user }) {
 
       <div className="flex-1 overflow-y-auto px-4 py-4 pb-24">
         {loading ? (
-          <div className="flex items-center justify-center h-40">
-            <div className="w-6 h-6 border-2 border-[#1D9E75] border-t-transparent rounded-full animate-spin" />
-          </div>
+          Array.from({ length: 6 }).map((_, i) => <ActivityItemSkeleton key={i} />)
         ) : items.length === 0 ? (
           <div className="text-center py-14">
             <p className="text-5xl mb-3">🔔</p>

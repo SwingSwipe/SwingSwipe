@@ -570,7 +570,19 @@ export default function Discover({ user, userProfile, onNavigateTab }) {
       requester_id: user.id,
       status: 'pending',
     })
-    if (!error) setRequestStatus(s => ({ ...s, [game.id]: 'pending' }))
+    if (!error) {
+      setRequestStatus(s => ({ ...s, [game.id]: 'pending' }))
+      // Notify host
+      const requesterName = userProfile?.name?.split(' ')[0] || 'Someone'
+      const date = new Date(game.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+      supabase.functions.invoke('send-push', {
+        body: {
+          user_id: game.host_id,
+          title: `${requesterName} wants to join your game ⛳`,
+          body: `${game.course_name} · ${date}${game.tee_time ? ` · ${game.tee_time.slice(0, 5)}` : ''}`,
+        },
+      })
+    }
   }
 
   const handleCancelRequest = async (game) => {
