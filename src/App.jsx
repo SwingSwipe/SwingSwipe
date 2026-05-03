@@ -346,7 +346,7 @@ export default function App() {
         case 'discover': return <Discover user={user} userProfile={profile} onNavigateTab={setActiveTab} deepLinkGameId={deepLinkGameId} />
         case 'games':    return <Games user={user} />
         case 'crew':     return <Crew user={user} userProfile={profile} onFriendRequestsChange={setCrewNotif} />
-        case 'activity': return <Activity user={user} />
+        case 'activity': return <Activity user={user} onNavigateTab={setActiveTab} />
         case 'profile':  return <Profile user={user} />
         default:         return <Discover user={user} />
       }
