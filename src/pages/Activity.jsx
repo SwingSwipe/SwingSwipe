@@ -3,7 +3,6 @@ import { supabase } from '../supabase'
 import Avatar from '../components/Avatar'
 import { ActivityItemSkeleton } from '../components/Skeleton'
 import RatePlayersModal from '../components/RatePlayersModal'
-import HeroHeader from '../components/HeroHeader'
 
 function timeAgo(ts) {
   const diff = Date.now() - new Date(ts).getTime()
@@ -18,7 +17,6 @@ function timeAgo(ts) {
 export default function Activity({ user }) {
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
   const [unratedGames, setUnratedGames] = useState([])
   const [rateGame, setRateGame] = useState(null)
   const [ratePlayers, setRatePlayers] = useState([])
@@ -33,56 +31,47 @@ export default function Activity({ user }) {
   }, [])
 
   const fetchUnratedGames = async () => {
-    try {
-      const sevenDaysAgo = new Date()
-      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
-      const cutoff = sevenDaysAgo.toISOString().split('T')[0]
-      const today = new Date().toISOString().split('T')[0]
+    const sevenDaysAgo = new Date()
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
+    const cutoff = sevenDaysAgo.toISOString().split('T')[0]
+    const today = new Date().toISOString().split('T')[0]
 
-      const [{ data: hosted, error: hostedError }, { data: joined, error: joinedError }] = await Promise.all([
-        supabase
-          .from('round_listings')
-          .select('id, course_name, date, tee_time, host_id')
-          .eq('host_id', user.id)
-          .lt('date', today)
-          .gte('date', cutoff),
-        supabase
-          .from('round_requests')
-          .select('listing_id, round_listings(id, course_name, date, tee_time, host_id)')
-          .eq('requester_id', user.id)
-          .eq('status', 'accepted'),
-      ])
+    // Games I hosted that have passed
+    const { data: hosted } = await supabase
+      .from('round_listings')
+      .select('id, course_name, date, tee_time')
+      .eq('host_id', user.id)
+      .lt('date', today)
+      .gte('date', cutoff)
 
-      if (hostedError || joinedError) {
-        setUnratedGames([])
-        return
-      }
+    // Games I joined that have passed
+    const { data: joined } = await supabase
+      .from('round_requests')
+      .select('listing_id, round_listings(id, course_name, date, tee_time, host_id)')
+      .eq('requester_id', user.id)
+      .eq('status', 'accepted')
 
-      const joinedPast = joined
-        ?.map(r => Array.isArray(r.round_listings) ? r.round_listings[0] : r.round_listings)
-        .filter(g => g && g.date < today && g.date >= cutoff) || []
+    const joinedPast = joined
+      ?.map(r => r.round_listings)
+      .filter(g => g && g.date < today && g.date >= cutoff) || []
 
-      const allGames = [
-        ...(hosted || []),
-        ...joinedPast,
-      ]
+    const allGames = [
+      ...(hosted || []),
+      ...joinedPast,
+    ]
 
-      if (!allGames.length) { setUnratedGames([]); return }
+    if (!allGames.length) { setUnratedGames([]); return }
 
-      const gameIds = allGames.map(g => g.id).filter(Boolean)
-      if (!gameIds.length) { setUnratedGames([]); return }
+    // Check which ones I've already rated
+    const gameIds = allGames.map(g => g.id)
+    const { data: existingRatings } = await supabase
+      .from('player_ratings')
+      .select('listing_id')
+      .eq('rater_id', user.id)
+      .in('listing_id', gameIds)
 
-      const { data: existingRatings } = await supabase
-        .from('player_ratings')
-        .select('listing_id')
-        .eq('rater_id', user.id)
-        .in('listing_id', gameIds)
-
-      const ratedIds = new Set(existingRatings?.map(r => r.listing_id) || [])
-      setUnratedGames(allGames.filter(g => !ratedIds.has(g.id)))
-    } catch {
-      setUnratedGames([])
-    }
+    const ratedIds = new Set(existingRatings?.map(r => r.listing_id) || [])
+    setUnratedGames(allGames.filter(g => !ratedIds.has(g.id)))
   }
 
   const openRateModal = async (game) => {
@@ -102,102 +91,91 @@ export default function Activity({ user }) {
 
   const fetchActivity = async () => {
     setLoading(true)
-    setError('')
 
-    try {
-      const { data: myListings, error: listingsError } = await supabase
-        .from('round_listings')
-        .select('id, course_name, date')
-        .eq('host_id', user.id)
+    const { data: myListings } = await supabase
+      .from('round_listings')
+      .select('id, course_name, date')
+      .eq('host_id', user.id)
 
-      if (listingsError) throw listingsError
+    const myListingIds = myListings?.map(l => l.id) || []
+    const listingMap = {}
+    myListings?.forEach(l => { listingMap[l.id] = l })
 
-      const myListingIds = myListings?.map(l => l.id).filter(Boolean) || []
-      const listingMap = {}
-      myListings?.forEach(l => { listingMap[l.id] = l })
+    const [{ data: inbound }, { data: outbound }] = await Promise.all([
+      myListingIds.length
+        ? supabase.from('round_requests')
+            .select('id, status, created_at, listing_id, requester_id, profiles(id, name, avatar_url)')
+            .in('listing_id', myListingIds)
+            .in('status', ['pending', 'accepted', 'declined'])
+            .order('created_at', { ascending: false })
+            .limit(30)
+        : Promise.resolve({ data: [] }),
+      supabase.from('round_requests')
+        .select('id, status, created_at, listing_id, invited_by, round_listings(course_name, date, profiles(name))')
+        .eq('requester_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(30),
+    ])
 
-      const [{ data: inbound, error: inboundError }, { data: outbound, error: outboundError }] = await Promise.all([
-        myListingIds.length
-          ? supabase.from('round_requests')
-              .select('id, status, created_at, listing_id, requester_id, profiles(id, name, avatar_url)')
-              .in('listing_id', myListingIds)
-              .in('status', ['pending', 'accepted', 'declined'])
-              .order('created_at', { ascending: false })
-              .limit(30)
-          : Promise.resolve({ data: [], error: null }),
-        supabase.from('round_requests')
-          .select('id, status, created_at, listing_id, invited_by, round_listings(course_name, date, profiles(name))')
-          .eq('requester_id', user.id)
-          .order('created_at', { ascending: false })
-          .limit(30),
-      ])
+    const events = []
 
-      if (inboundError || outboundError) throw inboundError || outboundError
+    inbound?.forEach(r => {
+      const listing = listingMap[r.listing_id]
+      const name = r.profiles?.name?.split(' ')[0] || 'Someone'
+      const course = listing?.course_name || 'your game'
+      if (r.status === 'pending') {
+        events.push({ id: r.id, ts: r.created_at, avatar: r.profiles, emoji: '🙋', text: `${name} wants to join your game at ${course}`, type: 'inbound_pending' })
+      } else if (r.status === 'accepted') {
+        events.push({ id: r.id + '_acc', ts: r.created_at, avatar: r.profiles, emoji: '✅', text: `You accepted ${name} into your game at ${course}`, type: 'inbound_accepted' })
+      } else if (r.status === 'declined') {
+        events.push({ id: r.id + '_dec', ts: r.created_at, avatar: r.profiles, emoji: '❌', text: `You declined ${name}'s request for ${course}`, type: 'inbound_declined' })
+      }
+    })
 
-      const events = []
+    outbound?.forEach(r => {
+      const course = r.round_listings?.course_name || 'a game'
+      const hostName = r.round_listings?.profiles?.name?.split(' ')[0] || 'the host'
+      if (r.status === 'invited') {
+        events.push({ id: r.id + '_inv', ts: r.created_at, emoji: '🎉', text: `You were invited to play at ${course}`, type: 'invited' })
+      } else if (r.status === 'pending') {
+        events.push({ id: r.id + '_out', ts: r.created_at, emoji: '⏳', text: `Waiting on ${hostName} for your request to join ${course}`, type: 'outbound_pending' })
+      } else if (r.status === 'accepted') {
+        events.push({ id: r.id + '_oacc', ts: r.created_at, emoji: '⛳', text: `You're in! ${hostName} accepted your request to join ${course}`, type: 'outbound_accepted' })
+      } else if (r.status === 'declined') {
+        events.push({ id: r.id + '_odec', ts: r.created_at, emoji: '😔', text: `${hostName} declined your request to join ${course}`, type: 'outbound_declined' })
+      }
+    })
 
-      inbound?.forEach(r => {
-        const listing = listingMap[r.listing_id]
-        const name = r.profiles?.name?.split(' ')[0] || 'Someone'
-        const course = listing?.course_name || 'your game'
-        if (r.status === 'pending') {
-          events.push({ id: r.id, ts: r.created_at, avatar: r.profiles, emoji: '🙋', text: `${name} wants to join your game at ${course}`, type: 'inbound_pending' })
-        } else if (r.status === 'accepted') {
-          events.push({ id: r.id + '_acc', ts: r.created_at, avatar: r.profiles, emoji: '✅', text: `You accepted ${name} into your game at ${course}`, type: 'inbound_accepted' })
-        } else if (r.status === 'declined') {
-          events.push({ id: r.id + '_dec', ts: r.created_at, avatar: r.profiles, emoji: '❌', text: `You declined ${name}'s request for ${course}`, type: 'inbound_declined' })
-        }
-      })
-
-      outbound?.forEach(r => {
-        const listing = Array.isArray(r.round_listings) ? r.round_listings[0] : r.round_listings
-        const course = listing?.course_name || 'a game'
-        const host = Array.isArray(listing?.profiles) ? listing.profiles[0] : listing?.profiles
-        const hostName = host?.name?.split(' ')[0] || 'the host'
-        if (r.status === 'invited') {
-          events.push({ id: r.id + '_inv', ts: r.created_at, emoji: '🎉', text: `You were invited to play at ${course}`, type: 'invited' })
-        } else if (r.status === 'pending') {
-          events.push({ id: r.id + '_out', ts: r.created_at, emoji: '⏳', text: `Waiting on ${hostName} for your request to join ${course}`, type: 'outbound_pending' })
-        } else if (r.status === 'accepted') {
-          events.push({ id: r.id + '_oacc', ts: r.created_at, emoji: '⛳', text: `You're in! ${hostName} accepted your request to join ${course}`, type: 'outbound_accepted' })
-        } else if (r.status === 'declined') {
-          events.push({ id: r.id + '_odec', ts: r.created_at, emoji: '😔', text: `${hostName} declined your request to join ${course}`, type: 'outbound_declined' })
-        }
-      })
-
-      events.sort((a, b) => new Date(b.ts) - new Date(a.ts))
-      setItems(events)
-    } catch (e) {
-      setItems([])
-      setError(e?.message || 'Activity could not load.')
-    } finally {
-      setLoading(false)
-    }
+    events.sort((a, b) => new Date(b.ts) - new Date(a.ts))
+    setItems(events)
+    setLoading(false)
   }
 
   const dotColor = (type) => {
-    if (type?.includes('accepted') || type === 'invited') return 'bg-green-400'
-    if (type?.includes('declined')) return 'bg-red-400'
+    if (type.includes('accepted') || type === 'invited') return 'bg-green-400'
+    if (type.includes('declined')) return 'bg-red-400'
     if (type === 'inbound_pending') return 'bg-orange-400'
     return 'bg-gray-300'
   }
 
   return (
     <div className="flex flex-col h-full">
-      <HeroHeader
-        eyebrow="SwingSwipe"
-        title="Activity"
-        subtitle="Requests, invites, reminders, and ratings"
-        icon="🔔"
-        compact
-      />
+      <div className="page-header">
+        <svg className="absolute right-4 top-6 opacity-10" width="64" height="64" viewBox="0 0 24 24" fill="none">
+          <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
+          <path d="M13.73 21a2 2 0 0 1-3.46 0" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
+        </svg>
+        <p className="text-white/60 text-xs font-semibold uppercase tracking-widest mb-1">SwingSwipe</p>
+        <h1 className="text-white text-2xl font-black mb-0.5">Activity 🔔</h1>
+        <p className="text-white/70 text-xs">Your recent notifications</p>
+      </div>
 
       <div className="flex-1 overflow-y-auto px-4 py-4 pb-24">
         {/* Rate prompts */}
         {unratedGames.length > 0 && (
           <div className="mb-4">
             {unratedGames.map(game => (
-              <div key={game.id} className="card card-press mb-3 p-4 border-l-4 border-yellow-400 flex items-center justify-between gap-3">
+              <div key={game.id} className="card mb-3 p-4 border-l-4 border-yellow-400 flex items-center justify-between gap-3">
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-bold text-gray-800">⭐ Rate your round at {game.course_name}</p>
                   <p className="text-xs text-gray-400 mt-0.5">
@@ -215,15 +193,6 @@ export default function Activity({ user }) {
 
         {loading ? (
           Array.from({ length: 6 }).map((_, i) => <ActivityItemSkeleton key={i} />)
-        ) : error ? (
-          <div className="text-center py-14 px-5">
-            <p className="text-5xl mb-3">🔔</p>
-            <p className="font-bold text-gray-700 text-lg">Activity could not load</p>
-            <p className="text-sm text-gray-400 mt-2">{error}</p>
-            <button onClick={fetchActivity} className="mt-5 bg-[#1D9E75] text-white font-bold px-5 py-2.5 rounded-[12px] text-sm active:opacity-80">
-              Try again
-            </button>
-          </div>
         ) : items.length === 0 ? (
           <div className="text-center py-14">
             <p className="text-5xl mb-3">🔔</p>
@@ -232,7 +201,7 @@ export default function Activity({ user }) {
           </div>
         ) : (
           items.map(item => (
-            <div key={item.id} className="card p-3 flex items-start gap-3 mb-3">
+            <div key={item.id} className="flex items-start gap-3 mb-4">
               <div className="relative shrink-0">
                 {item.avatar
                   ? <Avatar name={item.avatar.name} url={item.avatar.avatar_url} size={10} />

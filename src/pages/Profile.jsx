@@ -4,7 +4,6 @@ import Avatar from '../components/Avatar'
 import AvatarUpload from '../components/AvatarUpload'
 import Modal from '../components/Modal'
 import CourseInput from '../components/CourseInput'
-import HeroHeader from '../components/HeroHeader'
 
 function LogRoundModal({ userId, onClose, onSaved }) {
   const today = new Date().toISOString().split('T')[0]
@@ -251,17 +250,25 @@ export default function Profile({ user }) {
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <HeroHeader
-        eyebrow="Your card"
-        title="Profile"
-        subtitle="How other golfers see you"
-        icon="🏌️"
-        action={(
-          <button onClick={() => setShowEdit(true)} className="text-sm bg-white text-[#1D9E75] px-3 py-1.5 rounded-[12px] font-black shadow-sm">
+      <div className="page-header pb-10">
+        {/* Golf swing silhouette */}
+        <svg className="absolute right-2 top-4 opacity-10" width="80" height="72" viewBox="0 0 80 72" fill="none">
+          <circle cx="44" cy="12" r="10" fill="white"/>
+          <path d="M44 22 C44 22 36 38 28 50 C24 56 20 60 20 64" stroke="white" strokeWidth="3.5" strokeLinecap="round"/>
+          <path d="M44 34 C52 30 62 26 68 20" stroke="white" strokeWidth="3" strokeLinecap="round"/>
+          <path d="M28 50 C34 48 42 48 50 52" stroke="white" strokeWidth="2.5" strokeLinecap="round"/>
+        </svg>
+        <p className="text-white/60 text-xs font-semibold uppercase tracking-widest mb-1">Your card</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-white text-2xl font-black mb-0.5">Profile</h1>
+            <p className="text-white/70 text-xs">How other golfers see you</p>
+          </div>
+          <button onClick={() => setShowEdit(true)} className="text-sm bg-white text-[#1D9E75] px-3 py-1.5 rounded-[10px] font-bold shadow-sm">
             Edit
           </button>
-        )}
-      />
+        </div>
+      </div>
 
       {/* Profile card — overlaps header */}
       <div className="px-4 -mt-6">

@@ -10,7 +10,7 @@ export default {
         brand: {
           green: '#1D9E75',
           dark: '#1a1a1a',
-          bg: '#eef4ef',
+          bg: '#f5f5f2',
           card: '#ffffff',
         },
       },
