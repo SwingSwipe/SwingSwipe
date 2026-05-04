@@ -5,6 +5,7 @@ import Modal from '../components/Modal'
 import ConfirmSheet from '../components/ConfirmSheet'
 import PublicProfileModal from '../components/PublicProfileModal'
 import { PlayerCardSkeleton, GameCardSkeleton } from '../components/Skeleton'
+import { showToast } from '../components/Toast'
 
 const HANDICAP_LABELS = {
   beginner: 'Beginner',
@@ -248,6 +249,10 @@ function GameCard({ game, currentUserId, userHandicap, onRequest, onCancel, onWi
               >
                 Withdraw
               </button>
+            </div>
+          ) : status === 'sending' ? (
+            <div className="w-full py-2.5 rounded-[10px] text-sm font-bold bg-gray-100 text-gray-400 text-center">
+              Sending request…
             </div>
           ) : status === 'pending' ? (
             <div className="flex gap-2">
@@ -609,7 +614,8 @@ export default function Discover({ user, userProfile, onNavigateTab }) {
   }
 
   const handleRequest = async (game) => {
-    const { data: existing } = await supabase
+    setRequestStatus(s => ({ ...s, [game.id]: 'sending' }))
+    const { data: existing, error: existingError } = await supabase
       .from('round_requests')
       .select('id, status')
       .eq('listing_id', game.id)
@@ -618,6 +624,15 @@ export default function Discover({ user, userProfile, onNavigateTab }) {
 
     if (existing) {
       setRequestStatus(s => ({ ...s, [game.id]: existing.status }))
+      return
+    }
+    if (existingError) {
+      setRequestStatus(s => {
+        const next = { ...s }
+        delete next[game.id]
+        return next
+      })
+      showToast(`Could not check request: ${existingError.message}`)
       return
     }
 
@@ -638,6 +653,22 @@ export default function Discover({ user, userProfile, onNavigateTab }) {
           body: `${game.course_name} · ${date}${game.tee_time ? ` · ${game.tee_time.slice(0, 5)}` : ''}`,
         },
       })
+    } else if (error.code === '23505') {
+      const { data: duplicate } = await supabase
+        .from('round_requests')
+        .select('status')
+        .eq('listing_id', game.id)
+        .eq('requester_id', user.id)
+        .maybeSingle()
+      setRequestStatus(s => ({ ...s, [game.id]: duplicate?.status || 'pending' }))
+      showToast('You already requested this game.', 'success')
+    } else {
+      setRequestStatus(s => {
+        const next = { ...s }
+        delete next[game.id]
+        return next
+      })
+      showToast(`Request failed: ${error.message}`)
     }
   }
 
