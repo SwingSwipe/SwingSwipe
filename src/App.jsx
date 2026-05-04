@@ -130,7 +130,7 @@ export default function App() {
   const [isPasswordRecovery, setIsPasswordRecovery] = useState(false)
   const [installPrompt, setInstallPrompt] = useState(null)
   const [showInstallBanner, setShowInstallBanner] = useState(false)
-  const { toast } = useToast()
+  const { toast, show } = useToast()
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
@@ -266,6 +266,7 @@ export default function App() {
         if (listing?.host_id === user.id) {
           setGameNotif(n => n + 1)
           setActivityNotif(n => n + 1)
+          show(`New request for ${listing.course_name}`, 'success')
           if ('Notification' in window && Notification.permission === 'granted') {
             new Notification('New join request ⛳', {
               body: `Someone wants to join your game at ${listing.course_name}`,
@@ -278,7 +279,53 @@ export default function App() {
       })
       .subscribe()
     return () => supabase.removeChannel(channel)
-  }, [user])
+  }, [user, show])
+
+  // Backup check for hosted pending requests in case realtime/push is unavailable.
+  useEffect(() => {
+    if (!user) return
+    let lastPendingCount = null
+    let stopped = false
+
+    const checkPendingRequests = async () => {
+      const { data: listings } = await supabase
+        .from('round_listings')
+        .select('id')
+        .eq('host_id', user.id)
+
+      const listingIds = listings?.map(l => l.id) || []
+      if (!listingIds.length) {
+        lastPendingCount = 0
+        return
+      }
+
+      const { count } = await supabase
+        .from('round_requests')
+        .select('id', { count: 'exact', head: true })
+        .in('listing_id', listingIds)
+        .eq('status', 'pending')
+
+      if (stopped || count == null) return
+      if (lastPendingCount !== null && count > lastPendingCount) {
+        const diff = count - lastPendingCount
+        setGameNotif(n => n + diff)
+        setActivityNotif(n => n + diff)
+        show(`${diff === 1 ? 'A new player wants' : `${diff} players want`} to join your game`, 'success')
+      }
+      lastPendingCount = count
+    }
+
+    checkPendingRequests()
+    const interval = setInterval(checkPendingRequests, 15000)
+    const onVisible = () => { if (document.visibilityState === 'visible') checkPendingRequests() }
+    document.addEventListener('visibilitychange', onVisible)
+
+    return () => {
+      stopped = true
+      clearInterval(interval)
+      document.removeEventListener('visibilitychange', onVisible)
+    }
+  }, [user, show])
 
   // Notify requester when their request is accepted
   useEffect(() => {

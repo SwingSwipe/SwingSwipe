@@ -6,14 +6,42 @@ export default function Signup({ onSwitch }) {
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [sent, setSent] = useState(false)
 
   const handleSignup = async (e) => {
     e.preventDefault()
     setLoading(true)
     setError('')
-    const { error } = await supabase.auth.signUp({ email, password })
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        emailRedirectTo: window.location.origin,
+      },
+    })
     if (error) setError(error.message)
+    else setSent(true)
     setLoading(false)
+  }
+
+  if (sent) {
+    return (
+      <div className="min-h-screen bg-brand-bg flex flex-col items-center justify-center px-6">
+        <div className="w-full max-w-sm text-center">
+          <div className="w-16 h-16 bg-[#1D9E75] rounded-[16px] flex items-center justify-center mx-auto mb-5 text-3xl shadow-lg">✉️</div>
+          <h1 className="text-2xl font-black text-[#1a1a1a]">Check your email</h1>
+          <p className="text-sm text-gray-500 mt-2 leading-relaxed">
+            We sent a confirmation link to <span className="font-bold text-gray-700">{email}</span>. Confirm it, then come back and sign in.
+          </p>
+          <button onClick={onSwitch} className="btn-primary mt-6">
+            Go to sign in
+          </button>
+          <button onClick={() => setSent(false)} className="w-full text-center text-sm text-gray-400 mt-4">
+            Use a different email
+          </button>
+        </div>
+      </div>
+    )
   }
 
   return (
