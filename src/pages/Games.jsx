@@ -7,6 +7,7 @@ import ConfirmSheet from '../components/ConfirmSheet'
 import CourseInput from '../components/CourseInput'
 import { GameHostCardSkeleton } from '../components/Skeleton'
 import RatePlayersModal from '../components/RatePlayersModal'
+import PublicProfileModal from '../components/PublicProfileModal'
 
 const VIBE_LABELS = {
   casual: '😊 Casual',
@@ -14,6 +15,22 @@ const VIBE_LABELS = {
   competitive: '🏆 Competitive',
   fast_pace: '⚡ Fast pace',
   walking_only: '🚶 Walking only',
+  social: '🤝 Social',
+  practice_focused: '🎯 Practice',
+}
+
+const HANDICAP_LABELS = {
+  beginner: 'Beginner',
+  '90s': '90s shooter',
+  '80s': '80s shooter',
+  '70s': '70s shooter',
+  scratch: 'Scratch',
+}
+
+const PLAYER_PACE_LABELS = {
+  fast: '⚡ Fast',
+  moderate: '🚶 Moderate',
+  relaxed: '😌 Relaxed',
 }
 
 const TRANSPORT_LABELS = {
@@ -272,6 +289,7 @@ export default function Games({ user }) {
   const [confirmDelete, setConfirmDelete] = useState(null)
   const [ratePlayers, setRatePlayers] = useState([])
   const [actingRequestId, setActingRequestId] = useState(null)
+  const [viewingProfile, setViewingProfile] = useState(null)
   const [refreshing, setRefreshing] = useState(false)
   const touchStartY = useRef(0)
 
@@ -311,7 +329,7 @@ export default function Games({ user }) {
         const { data: requesterProfiles } = requesterIds.length
           ? await supabase
               .from('profiles')
-              .select('id, name, avatar_url, handicap_range, vibe_tags, pace')
+              .select('id, name, avatar_url, handicap_range, vibe_tags, pace, cart_or_walk, home_course, location')
               .in('id', requesterIds)
           : { data: [] }
         const profileMap = {}
@@ -605,28 +623,65 @@ export default function Games({ user }) {
 
                       {requests.length > 0 && (
                         <div className="mt-3 mb-2">
-                          <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">{requests.length} request{requests.length > 1 ? 's' : ''}</p>
+                          <div className="flex items-center justify-between mb-2">
+                            <p className="text-xs font-black text-gray-500 uppercase tracking-wide">{requests.length} request{requests.length > 1 ? 's' : ''}</p>
+                            <span className="text-[10px] font-bold text-orange-600 bg-orange-50 px-2 py-1 rounded-full">Needs review</span>
+                          </div>
                           {requests.map(req => (
-                            <div key={req.id} className="flex items-center gap-3 py-2 border-b border-gray-50 last:border-0">
-                              <Avatar name={req.profiles?.name} url={req.profiles?.avatar_url} size={9} />
-                              <div className="flex-1">
-                                <p className="font-semibold text-sm">{req.profiles?.name?.split(' ')[0]} {req.profiles?.name?.split(' ')[1]?.[0]}.</p>
-                                <p className="text-xs text-gray-400">{req.profiles?.handicap_range || 'No handicap listed'}</p>
-                              </div>
-                              <div className="flex gap-2">
+                            <div key={req.id} className="bg-[#f8faf9] border border-gray-100 rounded-[16px] p-3 mb-2 last:mb-0">
+                              <button
+                                onClick={() => setViewingProfile(req.requester_id)}
+                                className="w-full flex items-start gap-3 text-left active:opacity-75"
+                              >
+                                <Avatar name={req.profiles?.name} url={req.profiles?.avatar_url} size={11} />
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-start justify-between gap-2">
+                                    <div className="min-w-0">
+                                      <p className="font-black text-sm text-gray-900 truncate">
+                                        {req.profiles?.name || 'Golf player'}
+                                      </p>
+                                      <p className="text-xs text-gray-400 mt-0.5 truncate">
+                                        📍 {req.profiles?.home_course || req.profiles?.location || 'No home course'}
+                                      </p>
+                                    </div>
+                                    <span className="text-[10px] font-bold text-gray-400 shrink-0">View →</span>
+                                  </div>
+                                  <div className="flex flex-wrap gap-1.5 mt-2">
+                                    <span className="pill bg-[#1D9E75]/10 text-[#064e35] text-[10px] py-0.5">
+                                      {HANDICAP_LABELS[req.profiles?.handicap_range] || 'Skill not set'}
+                                    </span>
+                                    {req.profiles?.pace && (
+                                      <span className="pill bg-blue-50 text-blue-600 text-[10px] py-0.5">
+                                        {PLAYER_PACE_LABELS[req.profiles.pace] || req.profiles.pace}
+                                      </span>
+                                    )}
+                                    {req.profiles?.cart_or_walk && (
+                                      <span className="pill bg-gray-100 text-gray-600 text-[10px] py-0.5">
+                                        {req.profiles.cart_or_walk === 'cart' ? '🛺 Cart' : req.profiles.cart_or_walk === 'walking' ? '🚶 Walk' : 'Cart/walk'}
+                                      </span>
+                                    )}
+                                    {req.profiles?.vibe_tags?.slice(0, 2).map(tag => (
+                                      <span key={tag} className="pill bg-green-50 text-green-700 text-[10px] py-0.5">
+                                        {VIBE_LABELS[tag] || tag}
+                                      </span>
+                                    ))}
+                                  </div>
+                                </div>
+                              </button>
+                              <div className="grid grid-cols-2 gap-2 mt-3">
                                 <button
                                   onClick={() => handleDecline(req.id)}
                                   disabled={actingRequestId === req.id}
-                                  className="px-3 h-9 rounded-[10px] bg-red-50 text-red-500 flex items-center justify-center text-xs font-black disabled:opacity-50"
+                                  className="h-10 rounded-[12px] bg-red-50 text-red-500 flex items-center justify-center text-sm font-black disabled:opacity-50 active:scale-[0.98] transition-transform"
                                 >
                                   Deny
                                 </button>
                                 <button
                                   onClick={() => handleAccept(req.id, game.id)}
                                   disabled={actingRequestId === req.id}
-                                  className="px-3 h-9 rounded-[10px] bg-[#1D9E75] text-white flex items-center justify-center text-xs font-black disabled:opacity-50"
+                                  className="h-10 rounded-[12px] bg-[#1D9E75] text-white flex items-center justify-center text-sm font-black disabled:opacity-50 active:scale-[0.98] transition-transform"
                                 >
-                                  {actingRequestId === req.id ? 'Saving' : 'Accept'}
+                                  {actingRequestId === req.id ? 'Saving…' : 'Accept'}
                                 </button>
                               </div>
                             </div>
@@ -783,6 +838,13 @@ export default function Games({ user }) {
 
       {showPost && <PostGameModal userId={user.id} onClose={() => setShowPost(false)} onPosted={fetchGames} />}
       {chatGame && <GameChat listing={chatGame} currentUserId={user.id} onClose={() => setChatGame(null)} />}
+      {viewingProfile && (
+        <PublicProfileModal
+          userId={viewingProfile}
+          currentUserId={user.id}
+          onClose={() => setViewingProfile(null)}
+        />
+      )}
       {confirmDelete && <ConfirmSheet
         title={(myGames.find(g => g.id === confirmDelete)?.spots_filled || 0) > 1 ? 'Cancel this game?' : 'Delete this game?'}
         message={(myGames.find(g => g.id === confirmDelete)?.spots_filled || 0) > 1
