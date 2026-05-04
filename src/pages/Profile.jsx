@@ -68,8 +68,38 @@ function LogRoundModal({ userId, onClose, onSaved }) {
 const HANDICAP_LABELS = { beginner: 'Beginner', '90s': '90s shooter', '80s': '80s shooter', '70s': '70s shooter', scratch: 'Scratch' }
 const PACE_LABELS = { fast: '⚡ Fast', moderate: '🚶 Moderate', relaxed: '😌 Relaxed' }
 const VIBE_LABELS = { bread_game: '🍞 Bread game', casual: '😊 Casual', competitive: '🏆 Competitive', social: '🤝 Social', practice_focused: '🎯 Practice focused' }
+const CART_LABELS = { cart: '🛺 Cart', walking: '🚶 Walking', either: 'Either' }
+const AVAILABILITY_LABELS = {
+  weekend_mornings: 'Weekend AM',
+  weekday_mornings: 'Weekday AM',
+  weekend_afternoons: 'Weekend PM',
+  flexible: 'Flexible',
+}
 
 const POSITIVE_TAGS = ['Fast pace', 'Great attitude', 'Competitive', 'Fun to play with', 'Punctual', 'Would play again']
+
+function getProfileSignals(profile) {
+  const signals = [
+    { key: 'photo', label: 'Photo', done: Boolean(profile.avatar_url) },
+    { key: 'location', label: 'Course', done: Boolean(profile.home_course || profile.location) },
+    { key: 'skill', label: 'Skill', done: Boolean(profile.handicap_range) },
+    { key: 'pace', label: 'Pace', done: Boolean(profile.pace) },
+    { key: 'style', label: 'Style', done: Boolean(profile.cart_or_walk) },
+    { key: 'vibe', label: 'Vibe', done: Boolean(profile.vibe_tags?.length) },
+  ]
+  const complete = signals.filter(s => s.done).length
+  return { signals, complete, total: signals.length, pct: Math.round((complete / signals.length) * 100) }
+}
+
+function StatTile({ label, value, sub }) {
+  return (
+    <div className="bg-white rounded-[16px] border border-gray-100 p-3 shadow-sm">
+      <p className="text-xl font-black text-[#064e35] leading-none">{value}</p>
+      <p className="text-xs font-bold text-gray-700 mt-1">{label}</p>
+      {sub && <p className="text-[11px] text-gray-400 mt-0.5">{sub}</p>}
+    </div>
+  )
+}
 
 function EditProfileModal({ profile, onClose, onSaved }) {
   const [form, setForm] = useState({
@@ -247,10 +277,16 @@ export default function Profile({ user }) {
 
   if (!profile) return null
 
+  const profileSignals = getProfileSignals(profile)
+  const missingSignals = profileSignals.signals.filter(s => !s.done)
+  const reputationReady = reputation?.count >= 3
+  const primaryCourse = profile.home_course || profile.location || 'No home course set'
+  const bestKnownScore = stats?.best || profile.avg_score || '—'
+
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="page-header pb-10">
+      <div className="page-header pb-14">
         {/* Golf swing silhouette */}
         <svg className="absolute right-2 top-4 opacity-10" width="80" height="72" viewBox="0 0 80 72" fill="none">
           <circle cx="44" cy="12" r="10" fill="white"/>
@@ -261,31 +297,75 @@ export default function Profile({ user }) {
         <p className="text-white/60 text-xs font-semibold uppercase tracking-widest mb-1">Your card</p>
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-white text-2xl font-black mb-0.5">Profile</h1>
-            <p className="text-white/70 text-xs">How other golfers see you</p>
+            <h1 className="text-white text-2xl font-black mb-0.5">Golfer profile</h1>
+            <p className="text-white/70 text-xs">Your playing style, trust, and season stats</p>
           </div>
-          <button onClick={() => setShowEdit(true)} className="text-sm bg-white text-[#1D9E75] px-3 py-1.5 rounded-[10px] font-bold shadow-sm">
+          <button onClick={() => setShowEdit(true)} className="text-sm bg-white text-[#064e35] px-3 py-1.5 rounded-[10px] font-bold shadow-sm">
             Edit
           </button>
         </div>
       </div>
 
       {/* Profile card — overlaps header */}
-      <div className="px-4 -mt-6">
-        <div className="card p-5">
+      <div className="px-4 -mt-10">
+        <div className="bg-white rounded-[22px] border border-gray-100 shadow-lg shadow-green-950/10 p-5">
           <div className="flex items-start gap-4">
             <Avatar name={profile.name} url={profile.avatar_url} size={16} />
             <div className="flex-1">
-              <p className="font-black text-xl">{profile.name}</p>
-              <p className="text-sm text-gray-400">📍 {profile.home_course || profile.location || 'No home course set'}</p>
-              {reputation?.count >= 3 ? (
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <p className="font-black text-xl text-[#16231d] leading-tight">{profile.name}</p>
+                  <p className="text-sm text-gray-500 mt-0.5">📍 {primaryCourse}</p>
+                </div>
+                <span className="shrink-0 bg-[#1D9E75]/10 text-[#064e35] text-[11px] font-black px-2.5 py-1 rounded-full">
+                  {profileSignals.complete}/{profileSignals.total}
+                </span>
+              </div>
+              {reputationReady ? (
                 <div className="flex items-center gap-1 mt-1">
                   <span className="text-yellow-400">{'★'.repeat(Math.round(reputation.avg))}{'☆'.repeat(5 - Math.round(reputation.avg))}</span>
                   <span className="text-xs text-gray-500">{reputation.avg} ({reputation.count} ratings)</span>
                 </div>
               ) : (
-                <p className="text-xs text-gray-400 mt-1">No ratings yet · play 3+ rated rounds to show score</p>
+                <p className="text-xs text-gray-400 mt-1">Rating unlocks after 3 rated rounds</p>
               )}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-2 mt-5">
+            <div className="rounded-[14px] bg-[#f6faf8] px-3 py-2">
+              <p className="text-[10px] uppercase font-black text-gray-400">Skill</p>
+              <p className="text-sm font-black text-[#064e35] truncate">{HANDICAP_LABELS[profile.handicap_range] || 'Set it'}</p>
+            </div>
+            <div className="rounded-[14px] bg-[#f6faf8] px-3 py-2">
+              <p className="text-[10px] uppercase font-black text-gray-400">Pace</p>
+              <p className="text-sm font-black text-[#064e35] truncate">{PACE_LABELS[profile.pace] || 'Set it'}</p>
+            </div>
+            <div className="rounded-[14px] bg-[#f6faf8] px-3 py-2">
+              <p className="text-[10px] uppercase font-black text-gray-400">Best</p>
+              <p className="text-sm font-black text-[#064e35] truncate">{bestKnownScore}</p>
+            </div>
+          </div>
+
+          <div className="mt-4">
+            <div className="flex items-center justify-between mb-1.5">
+              <p className="text-xs font-black text-gray-600">Golfer card strength</p>
+              <p className="text-xs font-black text-[#1D9E75]">{profileSignals.pct}%</p>
+            </div>
+            <div className="w-full bg-gray-100 rounded-full h-2">
+              <div className="bg-[#1D9E75] h-2 rounded-full transition-all" style={{ width: `${profileSignals.pct}%` }} />
+            </div>
+            <div className="flex flex-wrap gap-1.5 mt-3">
+              {profileSignals.signals.map(signal => (
+                <span
+                  key={signal.key}
+                  className={`text-[11px] font-bold px-2 py-1 rounded-full ${
+                    signal.done ? 'bg-[#1D9E75]/10 text-[#064e35]' : 'bg-gray-100 text-gray-400'
+                  }`}
+                >
+                  {signal.done ? '✓' : '+'} {signal.label}
+                </span>
+              ))}
             </div>
           </div>
 
@@ -301,30 +381,19 @@ export default function Profile({ user }) {
       </div>
 
       {/* Completeness nudge */}
-      {(() => {
-        const missing = []
-        if (!profile.avatar_url) missing.push('photo')
-        if (!profile.home_course && !profile.location) missing.push('location')
-        if (!profile.pace) missing.push('pace')
-        if (!profile.vibe_tags?.length) missing.push('vibe')
-        if (!profile.bio_prompt) missing.push('best course')
-        if (missing.length === 0) return null
-        const pct = Math.round(((5 - missing.length) / 5) * 100)
-        return (
-          <div className="mx-4 mt-3 mb-1 bg-amber-50 border border-amber-200 rounded-[14px] p-4">
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-sm font-bold text-amber-800">Profile {pct}% complete</p>
-              <button onClick={() => setShowEdit(true)} className="text-xs font-bold text-amber-700 bg-amber-100 px-2.5 py-1 rounded-[8px]">
-                Finish →
-              </button>
+      {missingSignals.length > 0 && (
+        <div className="mx-4 mt-3 mb-1 bg-amber-50 border border-amber-200 rounded-[16px] p-4">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-black text-amber-900">Make your card easier to trust</p>
+              <p className="text-xs text-amber-700 mt-0.5">Add {missingSignals.slice(0, 3).map(s => s.label.toLowerCase()).join(', ')} to get better matches.</p>
             </div>
-            <div className="w-full bg-amber-200 rounded-full h-1.5 mb-2">
-              <div className="bg-amber-500 h-1.5 rounded-full transition-all" style={{ width: `${pct}%` }} />
-            </div>
-            <p className="text-xs text-amber-600">Missing: {missing.join(', ')} — complete your profile to get more game requests.</p>
+            <button onClick={() => setShowEdit(true)} className="text-xs font-black text-amber-800 bg-amber-100 px-3 py-2 rounded-[10px] shrink-0">
+              Finish
+            </button>
           </div>
-        )
-      })()}
+        </div>
+      )}
 
       <div className="flex-1 overflow-y-auto px-4 py-4 pb-24 space-y-4">
         {/* Stats */}
@@ -337,18 +406,9 @@ export default function Profile({ user }) {
           </div>
           {stats ? (
             <div className="grid grid-cols-3 gap-3">
-              <div className="card p-3 text-center">
-                <p className="text-xl font-black text-[#1D9E75]">{stats.count}</p>
-                <p className="text-xs text-gray-500 mt-0.5">Rounds</p>
-              </div>
-              <div className="card p-3 text-center">
-                <p className="text-xl font-black text-[#1D9E75]">{stats.avg}</p>
-                <p className="text-xs text-gray-500 mt-0.5">Avg score</p>
-              </div>
-              <div className="card p-3 text-center">
-                <p className="text-xl font-black text-[#1D9E75]">{stats.best}</p>
-                <p className="text-xs text-gray-500 mt-0.5">Best round</p>
-              </div>
+              <StatTile label="Rounds" value={stats.count} sub="this year" />
+              <StatTile label="Avg score" value={stats.avg} sub="logged" />
+              <StatTile label="Best round" value={stats.best} sub="season" />
             </div>
           ) : (
             <button onClick={() => setShowLogRound(true)} className="w-full card p-4 flex items-center gap-3 active:opacity-80">
@@ -365,26 +425,27 @@ export default function Profile({ user }) {
         {/* Golfer card */}
         <div>
           <p className="section-label">Your golfer card</p>
-          <div className="card p-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-gray-500">Skill level</p>
-              <span className="pill bg-[#1D9E75]/10 text-[#1D9E75] font-bold">
-                {HANDICAP_LABELS[profile.handicap_range] || 'Not set'}
-              </span>
+          <div className="card p-4 space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="rounded-[14px] bg-gray-50 p-3">
+                <p className="text-[10px] uppercase font-black text-gray-400 mb-1">Skill level</p>
+                <p className="text-sm font-black text-gray-800">{HANDICAP_LABELS[profile.handicap_range] || 'Not set'}</p>
+              </div>
+              <div className="rounded-[14px] bg-gray-50 p-3">
+                <p className="text-[10px] uppercase font-black text-gray-400 mb-1">Transport</p>
+                <p className="text-sm font-black text-gray-800">{CART_LABELS[profile.cart_or_walk] || 'Not set'}</p>
+              </div>
             </div>
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-gray-500">Pace</p>
-              <span className="text-sm font-semibold">{PACE_LABELS[profile.pace] || 'Not set'}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-gray-500">Cart/Walk</p>
-              <span className="text-sm font-semibold">
-                {profile.cart_or_walk === 'cart' ? '🛺 Cart' : profile.cart_or_walk === 'walking' ? '🚶 Walking' : profile.cart_or_walk === 'either' ? 'Either' : 'Not set'}
-              </span>
+            <div className="rounded-[14px] bg-[#f6faf8] p-3 flex items-center justify-between gap-3">
+              <div>
+                <p className="text-[10px] uppercase font-black text-gray-400 mb-1">Preferred pace</p>
+                <p className="text-sm font-black text-gray-800">{PACE_LABELS[profile.pace] || 'Not set'}</p>
+              </div>
+              <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-sm">⏱️</div>
             </div>
             {profile.vibe_tags?.length > 0 && (
               <div>
-                <p className="text-sm text-gray-500 mb-2">Vibe</p>
+                <p className="text-xs uppercase font-black text-gray-400 mb-2">Vibe</p>
                 <div className="flex flex-wrap gap-1.5">
                   {profile.vibe_tags.map(tag => (
                     <span key={tag} className="pill bg-green-50 text-green-700 text-xs">{VIBE_LABELS[tag] || tag}</span>
@@ -394,18 +455,18 @@ export default function Profile({ user }) {
             )}
             {profile.availability?.length > 0 && (
               <div>
-                <p className="text-sm text-gray-500 mb-2">Available</p>
+                <p className="text-xs uppercase font-black text-gray-400 mb-2">Available</p>
                 <div className="flex flex-wrap gap-1.5">
                   {profile.availability.map(a => (
-                    <span key={a} className="pill bg-gray-100 text-gray-600 text-xs capitalize">{a.replace(/_/g, ' ')}</span>
+                    <span key={a} className="pill bg-gray-100 text-gray-600 text-xs">{AVAILABILITY_LABELS[a] || a.replace(/_/g, ' ')}</span>
                   ))}
                 </div>
               </div>
             )}
             {profile.bio_prompt && (
-              <div className="pt-1 border-t border-gray-50">
-                <p className="text-xs text-gray-400">Best course played</p>
-                <p className="text-sm font-semibold mt-0.5">{profile.bio_prompt}</p>
+              <div className="rounded-[14px] border border-gray-100 p-3">
+                <p className="text-xs uppercase font-black text-gray-400">Best course played</p>
+                <p className="text-sm font-black text-gray-800 mt-1">{profile.bio_prompt}</p>
               </div>
             )}
           </div>
@@ -423,16 +484,19 @@ export default function Profile({ user }) {
             <div className="card divide-y divide-gray-50">
               {recentRounds.map(r => (
                 <div key={r.id} className="flex items-center justify-between px-4 py-3 group">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-gray-800 truncate max-w-[180px]">{r.course}</p>
-                    <p className="text-xs text-gray-400 mt-0.5">
-                      {new Date(r.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                      {r.holes && ` · ${r.holes} holes`}
-                    </p>
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <div className="w-10 h-10 rounded-[12px] bg-[#1D9E75]/10 flex items-center justify-center text-lg shrink-0">⛳</div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-black text-gray-800 truncate max-w-[190px]">{r.course}</p>
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        {new Date(r.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                        {r.holes && ` · ${r.holes} holes`}
+                      </p>
+                    </div>
                   </div>
                   <div className="flex items-center gap-3 shrink-0">
                     <div className="text-right">
-                      <p className="text-lg font-black text-[#1D9E75]">{r.score}</p>
+                      <p className="text-lg font-black text-[#064e35] leading-none">{r.score}</p>
                       <p className="text-[10px] text-gray-400">strokes</p>
                     </div>
                     <button
