@@ -375,7 +375,7 @@ export default function Games({ user }) {
       }
     }
 
-    setMyGames(mine || [])
+    setMyGames((mine || []).filter(g => g.is_active || isPast(g.date)))
     setJoinedGames(joined?.filter(j => j.round_listings).map(j => ({ ...j.round_listings, requestId: j.id, myConfirmed: j.confirmed })) || [])
     setInvites(inviteRows || [])
     setLoading(false)
