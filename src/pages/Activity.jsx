@@ -3,6 +3,7 @@ import { supabase } from '../supabase'
 import Avatar from '../components/Avatar'
 import { ActivityItemSkeleton } from '../components/Skeleton'
 import RatePlayersModal from '../components/RatePlayersModal'
+import { showToast } from '../components/Toast'
 
 function timeAgo(ts) {
   const diff = Date.now() - new Date(ts).getTime()
@@ -17,6 +18,7 @@ function timeAgo(ts) {
 export default function Activity({ user }) {
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)
+  const [actingId, setActingId] = useState(null)
   const [unratedGames, setUnratedGames] = useState([])
   const [rateGame, setRateGame] = useState(null)
   const [ratePlayers, setRatePlayers] = useState([])
@@ -124,7 +126,17 @@ export default function Activity({ user }) {
       const name = r.profiles?.name?.split(' ')[0] || 'Someone'
       const course = listing?.course_name || 'your game'
       if (r.status === 'pending') {
-        events.push({ id: r.id, ts: r.created_at, avatar: r.profiles, emoji: '🙋', text: `${name} wants to join your game at ${course}`, type: 'inbound_pending' })
+        events.push({
+          id: r.id,
+          requestId: r.id,
+          listingId: r.listing_id,
+          requesterId: r.requester_id,
+          ts: r.created_at,
+          avatar: r.profiles,
+          emoji: '🙋',
+          text: `${name} wants to join your game at ${course}`,
+          type: 'inbound_pending',
+        })
       } else if (r.status === 'accepted') {
         events.push({ id: r.id + '_acc', ts: r.created_at, avatar: r.profiles, emoji: '✅', text: `You accepted ${name} into your game at ${course}`, type: 'inbound_accepted' })
       } else if (r.status === 'declined') {
@@ -149,6 +161,91 @@ export default function Activity({ user }) {
     events.sort((a, b) => new Date(b.ts) - new Date(a.ts))
     setItems(events)
     setLoading(false)
+  }
+
+  const handleAccept = async (item) => {
+    setActingId(item.id)
+    const { data: req } = await supabase
+      .from('round_requests')
+      .select('requester_id')
+      .eq('id', item.requestId)
+      .single()
+
+    const { error } = await supabase
+      .from('round_requests')
+      .update({ status: 'accepted' })
+      .eq('id', item.requestId)
+
+    if (error) {
+      showToast('Failed to accept request.')
+      setActingId(null)
+      return
+    }
+
+    const { data: listing } = await supabase
+      .from('round_listings')
+      .select('spots_total, spots_filled, course_name, date, tee_time')
+      .eq('id', item.listingId)
+      .single()
+
+    if (listing) {
+      const newFilled = (listing.spots_filled || 0) + 1
+      const isFull = newFilled >= listing.spots_total
+      await supabase
+        .from('round_listings')
+        .update({ spots_filled: newFilled, ...(isFull && { is_active: false }) })
+        .eq('id', item.listingId)
+
+      if (req?.requester_id) {
+        const date = new Date(listing.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+        supabase.functions.invoke('send-push', {
+          body: {
+            user_id: req.requester_id,
+            title: "You're in! Request accepted ✅",
+            body: `${listing.course_name} · ${date}${listing.tee_time ? ` · ${listing.tee_time.slice(0, 5)}` : ''}`,
+          },
+        })
+      }
+    }
+
+    showToast('Request accepted.', 'success')
+    setActingId(null)
+    fetchActivity()
+  }
+
+  const handleDecline = async (item) => {
+    setActingId(item.id)
+    const { data: req } = await supabase
+      .from('round_requests')
+      .select('requester_id, round_listings(course_name, date)')
+      .eq('id', item.requestId)
+      .single()
+
+    const { error } = await supabase
+      .from('round_requests')
+      .update({ status: 'declined' })
+      .eq('id', item.requestId)
+
+    if (error) {
+      showToast('Failed to decline request.')
+      setActingId(null)
+      return
+    }
+
+    if (req?.requester_id && req?.round_listings) {
+      const date = new Date(req.round_listings.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+      supabase.functions.invoke('send-push', {
+        body: {
+          user_id: req.requester_id,
+          title: 'Game request declined',
+          body: `Your request to join ${req.round_listings.course_name} on ${date} wasn't accepted.`,
+        },
+      })
+    }
+
+    showToast('Request declined.', 'success')
+    setActingId(null)
+    fetchActivity()
   }
 
   const dotColor = (type) => {
@@ -201,7 +298,7 @@ export default function Activity({ user }) {
           </div>
         ) : (
           items.map(item => (
-            <div key={item.id} className="flex items-start gap-3 mb-4">
+            <div key={item.id} className={`flex items-start gap-3 mb-4 ${item.type === 'inbound_pending' ? 'bg-white border border-orange-100 rounded-[16px] p-3 shadow-sm' : ''}`}>
               <div className="relative shrink-0">
                 {item.avatar
                   ? <Avatar name={item.avatar.name} url={item.avatar.avatar_url} size={10} />
@@ -212,6 +309,24 @@ export default function Activity({ user }) {
               <div className="flex-1 min-w-0 pt-0.5">
                 <p className="text-sm text-gray-800 leading-snug">{item.text}</p>
                 <p className="text-xs text-gray-400 mt-0.5">{timeAgo(item.ts)}</p>
+                {item.type === 'inbound_pending' && (
+                  <div className="grid grid-cols-2 gap-2 mt-3">
+                    <button
+                      onClick={() => handleDecline(item)}
+                      disabled={actingId === item.id}
+                      className="py-2 rounded-[10px] bg-gray-100 text-gray-500 text-xs font-black active:opacity-80 disabled:opacity-60"
+                    >
+                      Deny
+                    </button>
+                    <button
+                      onClick={() => handleAccept(item)}
+                      disabled={actingId === item.id}
+                      className="py-2 rounded-[10px] bg-[#1D9E75] text-white text-xs font-black active:opacity-80 disabled:opacity-60"
+                    >
+                      {actingId === item.id ? 'Saving…' : 'Accept'}
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           ))
