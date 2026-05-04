@@ -267,6 +267,9 @@ export default function Activity({ user }) {
     return 'bg-gray-300'
   }
 
+  const pendingItems = items.filter(item => item.type === 'inbound_pending')
+  const updateItems = items.filter(item => item.type !== 'inbound_pending')
+
   return (
     <div className="flex flex-col h-full">
       <div className="page-header">
@@ -276,7 +279,17 @@ export default function Activity({ user }) {
         </svg>
         <p className="text-white/60 text-xs font-semibold uppercase tracking-widest mb-1">SwingSwipe</p>
         <h1 className="text-white text-2xl font-black mb-0.5">Activity 🔔</h1>
-        <p className="text-white/70 text-xs">Your recent notifications</p>
+        <p className="text-white/70 text-xs mb-3">Requests, invites, and round updates</p>
+        <div className="grid grid-cols-2 gap-2">
+          <div className="bg-white/12 rounded-[12px] px-3 py-2">
+            <p className="text-[10px] uppercase font-black text-white/50">Requests</p>
+            <p className="text-sm font-black text-white">{pendingItems.length} pending</p>
+          </div>
+          <div className="bg-white/12 rounded-[12px] px-3 py-2">
+            <p className="text-[10px] uppercase font-black text-white/50">Updates</p>
+            <p className="text-sm font-black text-white">{updateItems.length} recent</p>
+          </div>
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 py-4 pb-24">
@@ -302,46 +315,73 @@ export default function Activity({ user }) {
 
         {loading ? (
           Array.from({ length: 6 }).map((_, i) => <ActivityItemSkeleton key={i} />)
-        ) : items.length === 0 ? (
-          <div className="text-center py-14">
-            <p className="text-5xl mb-3">🔔</p>
-            <p className="font-bold text-gray-700 text-lg">No activity yet</p>
-            <p className="text-sm text-gray-400 mt-2">Post a game or request to join one — notifications will appear here.</p>
+        ) : items.length === 0 && unratedGames.length === 0 ? (
+          <div className="bg-white rounded-[22px] border border-gray-100 shadow-sm text-center py-10 px-5">
+            <div className="w-16 h-16 bg-[#1D9E75]/10 rounded-full flex items-center justify-center mx-auto text-3xl mb-4">🔔</div>
+            <p className="font-black text-gray-800 text-lg">No activity yet</p>
+            <p className="text-sm text-gray-500 mt-2">Post a game or request to join one. Requests and updates will live here.</p>
           </div>
         ) : (
-          items.map(item => (
-            <div key={item.id} className={`flex items-start gap-3 mb-4 ${item.type === 'inbound_pending' ? 'bg-white border border-orange-100 rounded-[16px] p-3 shadow-sm' : ''}`}>
-              <div className="relative shrink-0">
-                {item.avatar
-                  ? <Avatar name={item.avatar.name} url={item.avatar.avatar_url} size={10} />
-                  : <div className="w-10 h-10 bg-[#1D9E75]/10 rounded-full flex items-center justify-center text-xl">{item.emoji}</div>
-                }
-                <span className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white ${dotColor(item.type)}`} />
-              </div>
-              <div className="flex-1 min-w-0 pt-0.5">
-                <p className="text-sm text-gray-800 leading-snug">{item.text}</p>
-                <p className="text-xs text-gray-400 mt-0.5">{timeAgo(item.ts)}</p>
-                {item.type === 'inbound_pending' && (
-                  <div className="grid grid-cols-2 gap-2 mt-3">
-                    <button
-                      onClick={() => handleDecline(item)}
-                      disabled={actingId === item.id}
-                      className="py-2 rounded-[10px] bg-gray-100 text-gray-500 text-xs font-black active:opacity-80 disabled:opacity-60"
-                    >
-                      Deny
-                    </button>
-                    <button
-                      onClick={() => handleAccept(item)}
-                      disabled={actingId === item.id}
-                      className="py-2 rounded-[10px] bg-[#1D9E75] text-white text-xs font-black active:opacity-80 disabled:opacity-60"
-                    >
-                      {actingId === item.id ? 'Saving…' : 'Accept'}
-                    </button>
+          <>
+            {pendingItems.length > 0 && (
+              <div className="mb-5">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="section-label">Requests to review</p>
+                  <span className="text-[10px] font-black text-orange-600 bg-orange-50 px-2 py-1 rounded-full">{pendingItems.length}</span>
+                </div>
+                {pendingItems.map(item => (
+                  <div key={item.id} className="bg-white border border-orange-100 rounded-[18px] p-4 shadow-sm mb-3">
+                    <div className="flex items-start gap-3">
+                      <Avatar name={item.avatar?.name} url={item.avatar?.avatar_url} size={12} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-black text-gray-900 leading-snug">{item.text}</p>
+                        <p className="text-xs text-gray-400 mt-0.5">{timeAgo(item.ts)}</p>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 mt-4">
+                      <button
+                        onClick={() => handleDecline(item)}
+                        disabled={actingId === item.id}
+                        className="h-10 rounded-[12px] bg-gray-100 text-gray-500 text-sm font-black active:scale-[0.98] disabled:opacity-60 transition-transform"
+                      >
+                        Deny
+                      </button>
+                      <button
+                        onClick={() => handleAccept(item)}
+                        disabled={actingId === item.id}
+                        className="h-10 rounded-[12px] bg-[#1D9E75] text-white text-sm font-black active:scale-[0.98] disabled:opacity-60 transition-transform"
+                      >
+                        {actingId === item.id ? 'Saving…' : 'Accept'}
+                      </button>
+                    </div>
                   </div>
-                )}
+                ))}
               </div>
-            </div>
-          ))
+            )}
+
+            {updateItems.length > 0 && (
+              <div>
+                <p className="section-label mb-3">Recent updates</p>
+                <div className="bg-white rounded-[18px] border border-gray-100 shadow-sm divide-y divide-gray-50">
+                  {updateItems.map(item => (
+                    <div key={item.id} className="flex items-start gap-3 p-3">
+                      <div className="relative shrink-0">
+                        {item.avatar
+                          ? <Avatar name={item.avatar.name} url={item.avatar.avatar_url} size={10} />
+                          : <div className="w-10 h-10 bg-[#1D9E75]/10 rounded-full flex items-center justify-center text-xl">{item.emoji}</div>
+                        }
+                        <span className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white ${dotColor(item.type)}`} />
+                      </div>
+                      <div className="flex-1 min-w-0 pt-0.5">
+                        <p className="text-sm text-gray-800 leading-snug">{item.text}</p>
+                        <p className="text-xs text-gray-400 mt-0.5">{timeAgo(item.ts)}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
 
