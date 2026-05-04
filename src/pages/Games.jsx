@@ -461,6 +461,7 @@ export default function Games({ user }) {
     const game = myGames.find(g => g.id === confirmDelete)
     setConfirmDelete(null)
     if (!game) return
+    showToast(game.spots_filled > 1 ? 'Cancelling game…' : 'Deleting game…', 'success')
 
     // Get accepted players to notify
     const { data: accepted } = await supabase
@@ -484,8 +485,38 @@ export default function Games({ user }) {
       }
     }
 
-    await supabase.from('round_requests').delete().eq('listing_id', game.id)
-    await supabase.from('round_listings').delete().eq('id', game.id)
+    const { error: requestDeleteError } = await supabase
+      .from('round_requests')
+      .delete()
+      .eq('listing_id', game.id)
+
+    if (requestDeleteError) {
+      showToast(`Could not remove requests: ${requestDeleteError.message}`)
+      return
+    }
+
+    const { error: listingDeleteError } = await supabase
+      .from('round_listings')
+      .delete()
+      .eq('id', game.id)
+
+    if (listingDeleteError) {
+      const { error: closeError } = await supabase
+        .from('round_listings')
+        .update({ is_active: false })
+        .eq('id', game.id)
+
+      if (closeError) {
+        showToast(`Could not cancel game: ${listingDeleteError.message}`)
+        return
+      }
+
+      showToast('Game closed.', 'success')
+      fetchGames()
+      return
+    }
+
+    showToast(game.spots_filled > 1 ? 'Game cancelled.' : 'Game deleted.', 'success')
     fetchGames()
   }
 
