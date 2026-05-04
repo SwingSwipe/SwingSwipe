@@ -103,10 +103,10 @@ export default function Activity({ user }) {
     const listingMap = {}
     myListings?.forEach(l => { listingMap[l.id] = l })
 
-    const [{ data: inbound }, { data: outbound }] = await Promise.all([
+    const [{ data: inboundRaw, error: inboundError }, { data: outbound }] = await Promise.all([
       myListingIds.length
         ? supabase.from('round_requests')
-            .select('id, status, created_at, listing_id, requester_id, profiles(id, name, avatar_url)')
+            .select('id, status, created_at, listing_id, requester_id')
             .in('listing_id', myListingIds)
             .in('status', ['pending', 'accepted', 'declined'])
             .order('created_at', { ascending: false })
@@ -118,6 +118,18 @@ export default function Activity({ user }) {
         .order('created_at', { ascending: false })
         .limit(30),
     ])
+
+    if (inboundError) showToast(`Could not load activity requests: ${inboundError.message}`)
+    const requesterIds = [...new Set((inboundRaw || []).map(r => r.requester_id).filter(Boolean))]
+    const { data: requesterProfiles } = requesterIds.length
+      ? await supabase
+          .from('profiles')
+          .select('id, name, avatar_url')
+          .in('id', requesterIds)
+      : { data: [] }
+    const profileMap = {}
+    requesterProfiles?.forEach(p => { profileMap[p.id] = p })
+    const inbound = (inboundRaw || []).map(r => ({ ...r, profiles: profileMap[r.requester_id] }))
 
     const events = []
 

@@ -301,15 +301,25 @@ export default function Games({ user }) {
     if (mine?.length) {
       const activeIds = mine.filter(g => g.is_active).map(g => g.id)
       if (activeIds.length) {
-        const { data: reqs } = await supabase
+        const { data: reqs, error: reqError } = await supabase
           .from('round_requests')
-          .select('*, profiles(id, name, avatar_url, handicap_range, vibe_tags, pace)')
+          .select('id, listing_id, requester_id, status, created_at')
           .in('listing_id', activeIds)
           .eq('status', 'pending')
+        if (reqError) showToast(`Could not load requests: ${reqError.message}`)
+        const requesterIds = [...new Set((reqs || []).map(r => r.requester_id).filter(Boolean))]
+        const { data: requesterProfiles } = requesterIds.length
+          ? await supabase
+              .from('profiles')
+              .select('id, name, avatar_url, handicap_range, vibe_tags, pace')
+              .in('id', requesterIds)
+          : { data: [] }
+        const profileMap = {}
+        requesterProfiles?.forEach(p => { profileMap[p.id] = p })
         const reqMap = {}
         reqs?.forEach(r => {
           if (!reqMap[r.listing_id]) reqMap[r.listing_id] = []
-          reqMap[r.listing_id].push(r)
+          reqMap[r.listing_id].push({ ...r, profiles: profileMap[r.requester_id] })
         })
         setPendingRequests(reqMap)
       }
