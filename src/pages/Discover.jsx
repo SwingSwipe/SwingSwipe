@@ -85,7 +85,7 @@ function FoursomeStrip({ host, players = [], total = 4, filled }) {
 
 function PlayerCard({ player, onTap }) {
   return (
-    <div onClick={() => onTap(player)} className="card feed-card p-4 mb-3 cursor-pointer active:opacity-80">
+    <div onClick={() => onTap(player)} className="bg-white rounded-[18px] border border-gray-100 shadow-sm p-4 mb-3 cursor-pointer active:scale-[0.99] active:opacity-90 transition-transform">
       <div className="flex items-start gap-3">
         <Avatar name={player.name} url={player.avatar_url} size={14} />
         <div className="flex-1 min-w-0">
@@ -95,7 +95,7 @@ function PlayerCard({ player, onTap }) {
               <p className="text-xs text-gray-400 mt-0.5">📍 {player.home_course || player.location || 'No home course'}</p>
             </div>
             <div className="text-right shrink-0">
-              <span className="pill bg-[#1D9E75]/10 text-[#1D9E75] text-xs font-bold px-2 py-1">
+              <span className="pill bg-[#1D9E75]/10 text-[#064e35] text-xs font-bold px-2 py-1">
                 {HANDICAP_LABELS[player.handicap_range] || player.handicap_range || '?'}
               </span>
             </div>
@@ -146,12 +146,12 @@ function GameCard({ game, currentUserId, userHandicap, onRequest, onCancel, onWi
     && !SKILL_MEETS[userHandicap]?.has(game.skill_range)
 
   return (
-    <div className="card mb-3 overflow-hidden">
-      <div className="h-1.5 bg-[#1D9E75]" />
+    <div className="bg-white rounded-[18px] border border-gray-100 shadow-sm mb-3 overflow-hidden active:scale-[0.995] transition-transform">
+      <div className={`h-1.5 ${spotsLeft > 0 ? 'bg-[#1D9E75]' : 'bg-gray-300'}`} />
       <div className="p-4">
         <div className="flex items-start justify-between mb-2">
-          <div>
-            <p className="font-bold text-sm">{game.course_name}</p>
+          <div className="min-w-0 pr-2">
+            <p className="font-black text-[15px] text-[#16231d] truncate">{game.course_name}</p>
             <p className="text-xs text-gray-400 mt-0.5">
               {new Date(game.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
               {game.tee_time && ` · ${game.tee_time.slice(0, 5)}`}
@@ -264,7 +264,7 @@ function GameCard({ game, currentUserId, userHandicap, onRequest, onCancel, onWi
           ) : spotsLeft > 0 ? (
             <button
               onClick={() => onRequest(game)}
-              className="w-full py-2.5 rounded-[10px] text-sm font-bold bg-[#1D9E75] text-white active:opacity-80"
+              className="w-full py-3 rounded-[12px] text-sm font-black bg-[#1D9E75] text-white active:scale-[0.99] transition-transform shadow-sm shadow-green-900/10"
             >
               Request to join →
             </button>
@@ -276,6 +276,36 @@ function GameCard({ game, currentUserId, userHandicap, onRequest, onCancel, onWi
           <p className="text-xs text-[#1D9E75] font-semibold text-center">Your game</p>
         )}
       </div>
+    </div>
+  )
+}
+
+function DiscoverEmptyState({ mode, onInvite, onPostGame, filtered }) {
+  if (mode === 'players') {
+    return (
+      <div className="bg-white rounded-[22px] border border-gray-100 shadow-sm px-5 py-8 text-center">
+        <div className="w-16 h-16 mx-auto rounded-full bg-[#1D9E75]/10 flex items-center justify-center text-3xl mb-4">🏌️</div>
+        <p className="font-black text-[#16231d] text-lg">{filtered ? 'No golfers match that yet' : "You're one of the first"}</p>
+        <p className="text-sm text-gray-500 mt-2 mb-5">
+          {filtered ? 'Try widening the skill filter, or invite a few golfers so the feed wakes up.' : 'Invite your golf crew so the player feed starts feeling alive.'}
+        </p>
+        <button onClick={onInvite} className="bg-[#1D9E75] text-white font-black px-6 py-3 rounded-[12px] text-sm active:scale-[0.98] transition-transform">
+          Invite golfers →
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <div className="bg-white rounded-[22px] border border-gray-100 shadow-sm px-5 py-8 text-center">
+      <div className="w-16 h-16 mx-auto rounded-full bg-[#1D9E75]/10 flex items-center justify-center text-3xl mb-4">⛳</div>
+      <p className="font-black text-[#16231d] text-lg">{filtered ? 'No games match those filters' : 'No open games yet'}</p>
+      <p className="text-sm text-gray-500 mt-2 mb-5">
+        {filtered ? 'Try any distance, any holes, or any pace to see more tee times.' : 'Post a tee time and let nearby players request to join.'}
+      </p>
+      <button onClick={onPostGame} className="bg-[#1D9E75] text-white font-black px-6 py-3 rounded-[12px] text-sm active:scale-[0.98] transition-transform">
+        Post a game ⛳
+      </button>
     </div>
   )
 }
@@ -434,6 +464,8 @@ export default function Discover({ user, userProfile, onNavigateTab }) {
   const [userLocation, setUserLocation] = useState(null)
   const [refreshing, setRefreshing] = useState(false)
   const touchStartY = useRef(0)
+  const hasPlayerFilters = filters.handicap !== 'all' || filters.pace !== 'all'
+  const hasGameFilters = filters.holes !== 'all' || filters.gamePace !== 'all' || filters.distance !== 'all'
 
   const onTouchStart = (e) => { touchStartY.current = e.touches[0].clientY }
   const onTouchEnd = (e) => {
@@ -659,9 +691,15 @@ export default function Discover({ user, userProfile, onNavigateTab }) {
     setInvitePlayer(player)
   }
 
+  const shareInvite = () => {
+    const text = `Play golf with me on SwingSwipe ⛳\nFind games, join rounds, and track scores.\n${window.location.origin}`
+    if (navigator.share) navigator.share({ title: 'SwingSwipe', text })
+    else navigator.clipboard?.writeText(window.location.origin)
+  }
+
   return (
     <div className="flex flex-col h-full">
-      <div className="page-header">
+      <div className="page-header pb-5">
         {/* Golf flag decoration */}
         <svg className="absolute right-4 top-6 opacity-10" width="72" height="72" viewBox="0 0 72 72" fill="none">
           <line x1="24" y1="8" x2="24" y2="64" stroke="white" strokeWidth="3" strokeLinecap="round"/>
@@ -685,11 +723,25 @@ export default function Discover({ user, userProfile, onNavigateTab }) {
             ⛳ Find a Game
           </button>
         </div>
+        <div className="grid grid-cols-3 gap-2 mt-4">
+          <div className="bg-white/12 rounded-[12px] px-3 py-2">
+            <p className="text-[10px] uppercase font-black text-white/50">Feed</p>
+            <p className="text-sm font-black text-white">{mode === 'players' ? `${players.length || 0} golfers` : `${games.length || 0} games`}</p>
+          </div>
+          <div className="bg-white/12 rounded-[12px] px-3 py-2">
+            <p className="text-[10px] uppercase font-black text-white/50">Skill</p>
+            <p className="text-sm font-black text-white truncate">{HANDICAP_LABELS[userProfile?.handicap_range] || 'Open'}</p>
+          </div>
+          <div className="bg-white/12 rounded-[12px] px-3 py-2">
+            <p className="text-[10px] uppercase font-black text-white/50">Area</p>
+            <p className="text-sm font-black text-white truncate">{userLocation ? 'Nearby' : 'Any'}</p>
+          </div>
+        </div>
       </div>
 
       {/* Filters for players */}
       {mode === 'players' && (
-        <div className="bg-[#1D9E75]/5 px-4 py-2 flex gap-2 overflow-x-auto no-scrollbar border-b border-[#1D9E75]/10">
+        <div className="bg-white px-4 py-3 flex gap-2 overflow-x-auto no-scrollbar border-b border-gray-100 shadow-sm">
           {['all', '90s', '80s', '70s', 'scratch', 'beginner'].map(h => (
             <button
               key={h}
@@ -704,7 +756,7 @@ export default function Discover({ user, userProfile, onNavigateTab }) {
 
       {/* Filters for games */}
       {mode === 'games' && (
-        <div className="bg-[#1D9E75]/5 px-4 py-2 flex gap-2 overflow-x-auto no-scrollbar border-b border-[#1D9E75]/10">
+        <div className="bg-white px-4 py-3 flex gap-2 overflow-x-auto no-scrollbar border-b border-gray-100 shadow-sm">
           {userLocation && <>
             {[['all', '📍 Any dist.'], ['10', '10 mi'], ['25', '25 mi'], ['50', '50 mi']].map(([val, label]) => (
               <button key={val} onClick={() => updateFilters(f => ({ ...f, distance: val }))}
@@ -744,24 +796,17 @@ export default function Discover({ user, userProfile, onNavigateTab }) {
           </>
         ) : mode === 'players' ? (
           players.length === 0 ? (
-            <div className="text-center py-14 px-4">
-              <p className="text-5xl mb-3">🏌️</p>
-              <p className="font-bold text-gray-700 text-lg">You're one of the first!</p>
-              <p className="text-sm text-gray-400 mt-2 mb-6">Invite your golf crew — the more players, the more games.</p>
-              <button
-                onClick={() => {
-                  const text = `Play golf with me on SwingSwipe ⛳\nFind games, join rounds, and track scores.\n${window.location.origin}`
-                  if (navigator.share) navigator.share({ title: 'SwingSwipe', text })
-                  else navigator.clipboard?.writeText(window.location.origin)
-                }}
-                className="bg-[#1D9E75] text-white font-bold px-6 py-3 rounded-[12px] text-sm active:opacity-80"
-              >
-                Invite golfers →
-              </button>
-            </div>
+            <DiscoverEmptyState mode="players" filtered={hasPlayerFilters} onInvite={shareInvite} />
           ) : (
             <>
-              <p className="section-label mb-3">{players.length} golfers</p>
+              <div className="flex items-center justify-between mb-3">
+                <p className="section-label">{players.length} golfers</p>
+                {hasPlayerFilters && (
+                  <button onClick={() => updateFilters(f => ({ ...f, handicap: 'all', pace: 'all' }))} className="text-xs font-black text-[#1D9E75]">
+                    Clear filters
+                  </button>
+                )}
+              </div>
               {players.map(p => (
                 <PlayerCard key={p.id} player={p} onTap={setSelectedPlayer} />
               ))}
@@ -769,17 +814,17 @@ export default function Discover({ user, userProfile, onNavigateTab }) {
           )
         ) : (
           games.length === 0 ? (
-            <div className="text-center py-14">
-              <p className="text-5xl mb-3">⛳</p>
-              <p className="font-bold text-gray-700 text-lg">No open games yet</p>
-              <p className="text-sm text-gray-400 mt-2 mb-5">Be the first to post a tee time and find playing partners.</p>
-              <button onClick={() => onNavigateTab?.('games')} className="bg-[#1D9E75] text-white font-bold px-6 py-3 rounded-[12px] text-sm active:opacity-80">
-                Post a game ⛳
-              </button>
-            </div>
+            <DiscoverEmptyState mode="games" filtered={hasGameFilters} onPostGame={() => onNavigateTab?.('games')} />
           ) : (
             <>
-              <p className="section-label mb-3">{games.length} open game{games.length !== 1 ? 's' : ''}</p>
+              <div className="flex items-center justify-between mb-3">
+                <p className="section-label">{games.length} open game{games.length !== 1 ? 's' : ''}</p>
+                {hasGameFilters && (
+                  <button onClick={() => updateFilters(f => ({ ...f, holes: 'all', gamePace: 'all', distance: 'all' }))} className="text-xs font-black text-[#1D9E75]">
+                    Clear filters
+                  </button>
+                )}
+              </div>
               {games.map(g => (
                 <GameCard
                   key={g.id}
