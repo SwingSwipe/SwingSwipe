@@ -271,6 +271,7 @@ export default function Games({ user }) {
   const [rateGame, setRateGame] = useState(null)
   const [confirmDelete, setConfirmDelete] = useState(null)
   const [ratePlayers, setRatePlayers] = useState([])
+  const [actingRequestId, setActingRequestId] = useState(null)
   const [refreshing, setRefreshing] = useState(false)
   const touchStartY = useRef(0)
 
@@ -353,18 +354,24 @@ export default function Games({ user }) {
   }
 
   const handleAccept = async (requestId, listingId) => {
+    setActingRequestId(requestId)
     const { data: req } = await supabase
       .from('round_requests').select('requester_id').eq('id', requestId).single()
     const { error } = await supabase.from('round_requests').update({ status: 'accepted' }).eq('id', requestId)
-    if (error) { showToast('Failed to accept request.'); return }
+    if (error) {
+      showToast(`Failed to accept: ${error.message}`)
+      setActingRequestId(null)
+      return
+    }
     const { data: listing } = await supabase
       .from('round_listings').select('spots_total, spots_filled, course_name, date, tee_time').eq('id', listingId).single()
     if (listing) {
       const newFilled = listing.spots_filled + 1
       const isFull = newFilled >= listing.spots_total
-      await supabase.from('round_listings')
+      const { error: listingError } = await supabase.from('round_listings')
         .update({ spots_filled: newFilled, ...(isFull && { is_active: false }) })
         .eq('id', listingId)
+      if (listingError) showToast(`Accepted, but game count failed: ${listingError.message}`)
       // Notify the accepted player
       if (req?.requester_id) {
         const date = new Date(listing.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
@@ -377,14 +384,21 @@ export default function Games({ user }) {
         })
       }
     }
+    showToast('Request accepted.', 'success')
+    setActingRequestId(null)
     fetchGames()
   }
 
   const handleDecline = async (requestId) => {
+    setActingRequestId(requestId)
     const { data: req } = await supabase
       .from('round_requests').select('requester_id, round_listings(course_name, date)').eq('id', requestId).single()
     const { error } = await supabase.from('round_requests').update({ status: 'declined' }).eq('id', requestId)
-    if (error) { showToast('Failed to decline request.'); return }
+    if (error) {
+      showToast(`Failed to decline: ${error.message}`)
+      setActingRequestId(null)
+      return
+    }
     if (req?.requester_id && req?.round_listings) {
       const date = new Date(req.round_listings.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
       supabase.functions.invoke('send-push', {
@@ -395,6 +409,8 @@ export default function Games({ user }) {
         },
       })
     }
+    showToast('Request declined.', 'success')
+    setActingRequestId(null)
     fetchGames()
   }
 
@@ -588,8 +604,20 @@ export default function Games({ user }) {
                                 <p className="text-xs text-gray-400">{req.profiles?.handicap_range || 'No handicap listed'}</p>
                               </div>
                               <div className="flex gap-2">
-                                <button onClick={() => handleDecline(req.id)} className="w-8 h-8 rounded-full bg-red-50 text-red-500 flex items-center justify-center font-bold">✕</button>
-                                <button onClick={() => handleAccept(req.id, game.id)} className="w-8 h-8 rounded-full bg-green-50 text-green-600 flex items-center justify-center font-bold">✓</button>
+                                <button
+                                  onClick={() => handleDecline(req.id)}
+                                  disabled={actingRequestId === req.id}
+                                  className="px-3 h-9 rounded-[10px] bg-red-50 text-red-500 flex items-center justify-center text-xs font-black disabled:opacity-50"
+                                >
+                                  Deny
+                                </button>
+                                <button
+                                  onClick={() => handleAccept(req.id, game.id)}
+                                  disabled={actingRequestId === req.id}
+                                  className="px-3 h-9 rounded-[10px] bg-[#1D9E75] text-white flex items-center justify-center text-xs font-black disabled:opacity-50"
+                                >
+                                  {actingRequestId === req.id ? 'Saving' : 'Accept'}
+                                </button>
                               </div>
                             </div>
                           ))}
