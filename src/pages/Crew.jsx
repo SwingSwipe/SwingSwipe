@@ -61,6 +61,19 @@ const CREW_THEMES = {
 
 const CREW_ICONS = ['🤝', '⛳', '🏆', '🔥', '🍻', '🌙', '⚡', '🎯']
 const getCrewTheme = (theme) => CREW_THEMES[theme] || CREW_THEMES.classic
+const SYSTEM_MESSAGE_PREFIX = '__swingswipe_system__:'
+const isSystemMessage = (message) => message?.content?.startsWith(SYSTEM_MESSAGE_PREFIX)
+const systemMessageContent = (message) => message?.content?.replace(SYSTEM_MESSAGE_PREFIX, '') || ''
+
+const logCrewActivity = (crewId, userId, content) => {
+  if (!crewId || !userId || !content) return Promise.resolve()
+  return supabase
+    .from('crew_messages')
+    .insert({ crew_id: crewId, user_id: userId, content: `${SYSTEM_MESSAGE_PREFIX}${content}` })
+    .then(({ error }) => {
+      if (error) console.warn('Crew activity log failed', error.message)
+    })
+}
 
 function CrewChat({ crew, currentUserId, onClose }) {
   const [messages, setMessages] = useState([])
@@ -128,6 +141,16 @@ function CrewChat({ crew, currentUserId, onClose }) {
         <div className="pointer-events-none absolute -right-12 top-20 w-36 h-36 rounded-full bg-white/35" />
         <div className="pointer-events-none absolute -left-10 bottom-24 w-28 h-28 rounded-full bg-white/25" />
         {messages.map(msg => {
+          if (isSystemMessage(msg)) {
+            return (
+              <div key={msg.id} className="flex justify-center relative z-10">
+                <div className="max-w-[85%] rounded-full bg-white/75 border border-white px-3 py-1.5 text-[11px] font-bold text-gray-500 text-center shadow-sm">
+                  {systemMessageContent(msg)}
+                </div>
+              </div>
+            )
+          }
+
           const isMe = msg.user_id === currentUserId
           const sender = profiles[msg.user_id]
           return (
@@ -256,6 +279,7 @@ function ManageCrewModal({ userId, onClose, onDone }) {
       return
     }
 
+    logCrewActivity(crew.id, userId, `${crew.name} was created`)
     showToast(`Created ${crew.name}. Share the name with friends.`, 'success')
     onDone()
     onClose()
@@ -369,6 +393,7 @@ function EditCrewModal({ crew, onClose, onDone }) {
     }
 
     showToast('Crew updated.', 'success')
+    logCrewActivity(crew.id, crew.created_by, 'Crew details were updated')
     onDone(data)
     onClose()
     setLoading(false)
@@ -697,6 +722,7 @@ export default function Crew({ user, userProfile, onFriendRequestsChange }) {
     if (error) { showToast(`Could not approve crew request: ${error.message}`); return }
 
     setCrewJoinRequests(r => r.filter(x => x.id !== req.id))
+    await logCrewActivity(req.crew_id, user.id, `${req.profile?.name || 'A golfer'} joined the crew`)
     showToast(`${req.profile?.name || 'Player'} joined ${req.crew?.name || 'the crew'}.`, 'success')
     supabase.functions.invoke('send-push', {
       body: {
@@ -756,6 +782,7 @@ export default function Crew({ user, userProfile, onFriendRequestsChange }) {
       return
     }
 
+    await logCrewActivity(crewId, user.id, `${userProfile?.name || 'A member'} left the crew`)
     setCrews(list => list.filter(c => c.id !== crewId))
     setCrewJoinRequests(reqs => reqs.filter(r => r.crew_id !== crewId))
     setCrewMembers(map => {
