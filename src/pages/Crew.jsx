@@ -12,6 +12,7 @@ const CREW_THEMES = {
   classic: {
     name: 'Classic',
     card: 'from-[#064e35] to-[#1D9E75]',
+    room: 'from-[#f3fbf7] via-[#e8f5ef] to-[#f8fcfa]',
     soft: 'bg-[#e8f5ef] text-[#064e35]',
     button: 'bg-[#1D9E75] text-white',
     bubble: 'bg-[#1D9E75] text-white',
@@ -19,6 +20,7 @@ const CREW_THEMES = {
   sunset: {
     name: 'Sunset',
     card: 'from-[#7c2d12] to-[#f97316]',
+    room: 'from-[#fff7ed] via-[#ffedd5] to-[#fffaf5]',
     soft: 'bg-orange-50 text-orange-800',
     button: 'bg-orange-500 text-white',
     bubble: 'bg-orange-500 text-white',
@@ -26,6 +28,7 @@ const CREW_THEMES = {
   navy: {
     name: 'Navy',
     card: 'from-[#0f172a] to-[#2563eb]',
+    room: 'from-[#eff6ff] via-[#dbeafe] to-[#f8fbff]',
     soft: 'bg-blue-50 text-blue-900',
     button: 'bg-blue-600 text-white',
     bubble: 'bg-blue-600 text-white',
@@ -33,6 +36,7 @@ const CREW_THEMES = {
   tournament: {
     name: 'Tournament',
     card: 'from-[#14532d] to-[#ca8a04]',
+    room: 'from-[#f7fee7] via-[#fef9c3] to-[#fffdf2]',
     soft: 'bg-yellow-50 text-yellow-800',
     button: 'bg-yellow-600 text-white',
     bubble: 'bg-yellow-600 text-white',
@@ -40,6 +44,7 @@ const CREW_THEMES = {
   night: {
     name: 'Night',
     card: 'from-[#111827] to-[#6d28d9]',
+    room: 'from-[#f5f3ff] via-[#ede9fe] to-[#faf9ff]',
     soft: 'bg-violet-50 text-violet-900',
     button: 'bg-violet-600 text-white',
     bubble: 'bg-violet-600 text-white',
@@ -47,6 +52,7 @@ const CREW_THEMES = {
   sand: {
     name: 'Sand',
     card: 'from-[#78350f] to-[#d97706]',
+    room: 'from-[#fffbeb] via-[#fef3c7] to-[#fffdf5]',
     soft: 'bg-amber-50 text-amber-900',
     button: 'bg-amber-600 text-white',
     bubble: 'bg-amber-600 text-white',
@@ -108,7 +114,7 @@ function CrewChat({ crew, currentUserId, onClose }) {
 
   return (
     <Modal>
-    <div className="fixed inset-0 bg-[#f0f2f0] z-50 flex flex-col">
+    <div className={`fixed inset-0 bg-gradient-to-b ${theme.room} z-50 flex flex-col`}>
       <div className={`bg-gradient-to-r ${theme.card} text-white px-4 py-3 flex items-center gap-3`}>
         <button onClick={onClose} className="text-gray-400 text-lg">←</button>
         <div className="w-10 h-10 rounded-[12px] bg-white/20 flex items-center justify-center text-xl">{crew.icon || '🤝'}</div>
@@ -118,7 +124,9 @@ function CrewChat({ crew, currentUserId, onClose }) {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-3">
+      <div className="flex-1 overflow-y-auto p-4 space-y-3 relative">
+        <div className="pointer-events-none absolute -right-12 top-20 w-36 h-36 rounded-full bg-white/35" />
+        <div className="pointer-events-none absolute -left-10 bottom-24 w-28 h-28 rounded-full bg-white/25" />
         {messages.map(msg => {
           const isMe = msg.user_id === currentUserId
           const sender = profiles[msg.user_id]
@@ -142,7 +150,7 @@ function CrewChat({ crew, currentUserId, onClose }) {
         <div ref={bottomRef} />
       </div>
 
-      <div className="p-4 bg-white border-t border-gray-100 flex gap-2">
+      <div className="p-4 bg-white/95 backdrop-blur border-t border-white/70 flex gap-2">
         <input
           className="input-field flex-1"
           placeholder="Message…"
