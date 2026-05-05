@@ -8,11 +8,60 @@ import ConfirmSheet from '../components/ConfirmSheet'
 import Leaderboard from './Leaderboard'
 import { showToast } from '../components/Toast'
 
+const CREW_THEMES = {
+  classic: {
+    name: 'Classic',
+    card: 'from-[#064e35] to-[#1D9E75]',
+    soft: 'bg-[#e8f5ef] text-[#064e35]',
+    button: 'bg-[#1D9E75] text-white',
+    bubble: 'bg-[#1D9E75] text-white',
+  },
+  sunset: {
+    name: 'Sunset',
+    card: 'from-[#7c2d12] to-[#f97316]',
+    soft: 'bg-orange-50 text-orange-800',
+    button: 'bg-orange-500 text-white',
+    bubble: 'bg-orange-500 text-white',
+  },
+  navy: {
+    name: 'Navy',
+    card: 'from-[#0f172a] to-[#2563eb]',
+    soft: 'bg-blue-50 text-blue-900',
+    button: 'bg-blue-600 text-white',
+    bubble: 'bg-blue-600 text-white',
+  },
+  tournament: {
+    name: 'Tournament',
+    card: 'from-[#14532d] to-[#ca8a04]',
+    soft: 'bg-yellow-50 text-yellow-800',
+    button: 'bg-yellow-600 text-white',
+    bubble: 'bg-yellow-600 text-white',
+  },
+  night: {
+    name: 'Night',
+    card: 'from-[#111827] to-[#6d28d9]',
+    soft: 'bg-violet-50 text-violet-900',
+    button: 'bg-violet-600 text-white',
+    bubble: 'bg-violet-600 text-white',
+  },
+  sand: {
+    name: 'Sand',
+    card: 'from-[#78350f] to-[#d97706]',
+    soft: 'bg-amber-50 text-amber-900',
+    button: 'bg-amber-600 text-white',
+    bubble: 'bg-amber-600 text-white',
+  },
+}
+
+const CREW_ICONS = ['🤝', '⛳', '🏆', '🔥', '🍻', '🌙', '⚡', '🎯']
+const getCrewTheme = (theme) => CREW_THEMES[theme] || CREW_THEMES.classic
+
 function CrewChat({ crew, currentUserId, onClose }) {
   const [messages, setMessages] = useState([])
   const [profiles, setProfiles] = useState({})
   const [text, setText] = useState('')
   const bottomRef = useRef(null)
+  const theme = getCrewTheme(crew.theme)
 
   useEffect(() => {
     const fetchMessages = async () => {
@@ -60,11 +109,12 @@ function CrewChat({ crew, currentUserId, onClose }) {
   return (
     <Modal>
     <div className="fixed inset-0 bg-[#f0f2f0] z-50 flex flex-col">
-      <div className="bg-[#1a1a1a] text-white px-4 py-3 flex items-center gap-3">
+      <div className={`bg-gradient-to-r ${theme.card} text-white px-4 py-3 flex items-center gap-3`}>
         <button onClick={onClose} className="text-gray-400 text-lg">←</button>
+        <div className="w-10 h-10 rounded-[12px] bg-white/20 flex items-center justify-center text-xl">{crew.icon || '🤝'}</div>
         <div>
           <p className="font-semibold text-sm">{crew.name}</p>
-          <p className="text-xs text-gray-400">Crew chat</p>
+          <p className="text-xs text-white/70">{crew.tagline || 'Crew chat'}</p>
         </div>
       </div>
 
@@ -76,7 +126,7 @@ function CrewChat({ crew, currentUserId, onClose }) {
             <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
               <div className={`max-w-[75%]`}>
                 {!isMe && <p className="text-xs text-gray-400 mb-0.5">{sender?.name || 'Member'}</p>}
-                <div className={`px-3 py-2 rounded-[12px] text-sm ${isMe ? 'bg-[#1D9E75] text-white' : 'bg-white text-gray-800 border border-gray-100'}`}>
+                <div className={`px-3 py-2 rounded-[12px] text-sm ${isMe ? theme.bubble : 'bg-white text-gray-800 border border-gray-100'}`}>
                   {msg.content}
                 </div>
               </div>
@@ -100,7 +150,7 @@ function CrewChat({ crew, currentUserId, onClose }) {
           onChange={e => setText(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && send()}
         />
-        <button onClick={send} className="w-10 h-10 bg-[#1D9E75] rounded-[8px] flex items-center justify-center text-white">↑</button>
+        <button onClick={send} className={`w-10 h-10 ${theme.button} rounded-[8px] flex items-center justify-center`}>↑</button>
       </div>
     </div>
     </Modal>
@@ -110,9 +160,13 @@ function CrewChat({ crew, currentUserId, onClose }) {
 function ManageCrewModal({ userId, onClose, onDone }) {
   const [tab, setTab] = useState('create')
   const [name, setName] = useState('')
+  const [theme, setTheme] = useState('classic')
+  const [icon, setIcon] = useState('🤝')
+  const [tagline, setTagline] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const cleanName = name.trim().replace(/\s+/g, ' ')
+  const cleanTagline = tagline.trim().slice(0, 80)
   const canSubmit = cleanName.length >= 2
 
   const updateName = (value) => {
@@ -184,7 +238,7 @@ function ManageCrewModal({ userId, onClose, onDone }) {
     setError('')
     const { data: crew, error: createError } = await supabase
       .from('crews')
-      .insert({ name: cleanName, created_by: userId })
+      .insert({ name: cleanName, created_by: userId, theme, icon, tagline: cleanTagline || null })
       .select('id, name')
       .single()
 
@@ -235,12 +289,129 @@ function ManageCrewModal({ userId, onClose, onDone }) {
               <p className="text-xs text-[#3d6b59] mt-1">After creating, tap Invite friends on the crew card to share the crew name.</p>
             </div>
             <input className="input-field mb-3" placeholder="Crew name (e.g. Saturday Boys)" value={name} onChange={e => updateName(e.target.value)} />
+            <input className="input-field mb-3" placeholder="Tagline (optional)" value={tagline} maxLength={80} onChange={e => setTagline(e.target.value)} />
+            <div className="mb-3">
+              <p className="text-[10px] uppercase font-black text-gray-400 mb-2">Icon</p>
+              <div className="grid grid-cols-8 gap-1.5">
+                {CREW_ICONS.map(item => (
+                  <button
+                    key={item}
+                    type="button"
+                    onClick={() => setIcon(item)}
+                    className={`h-9 rounded-[10px] text-lg ${icon === item ? 'bg-[#1D9E75] text-white' : 'bg-gray-100'}`}
+                  >
+                    {item}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="mb-3">
+              <p className="text-[10px] uppercase font-black text-gray-400 mb-2">Theme</p>
+              <div className="grid grid-cols-2 gap-2">
+                {Object.entries(CREW_THEMES).map(([key, item]) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setTheme(key)}
+                    className={`rounded-[12px] p-2 text-left border ${theme === key ? 'border-[#1D9E75]' : 'border-gray-100'}`}
+                  >
+                    <span className={`block h-8 rounded-[8px] bg-gradient-to-r ${item.card} mb-1`} />
+                    <span className="text-xs font-black text-gray-700">{item.name}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
             {error && <p className="text-red-500 text-xs mb-3">{error}</p>}
             <button onClick={create} className="btn-primary disabled:opacity-50" disabled={loading || !canSubmit}>{loading ? 'Creating…' : 'Create crew'}</button>
           </>
         )}
       </div>
     </>
+    </Modal>
+  )
+}
+
+function EditCrewModal({ crew, onClose, onDone }) {
+  const [name, setName] = useState(crew.name || '')
+  const [theme, setTheme] = useState(crew.theme || 'classic')
+  const [icon, setIcon] = useState(crew.icon || '🤝')
+  const [tagline, setTagline] = useState(crew.tagline || '')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const cleanName = name.trim().replace(/\s+/g, ' ')
+  const cleanTagline = tagline.trim().slice(0, 80)
+  const canSubmit = cleanName.length >= 2
+
+  const save = async () => {
+    if (!canSubmit) return
+    setLoading(true)
+    setError('')
+
+    const { data, error: updateError } = await supabase
+      .from('crews')
+      .update({ name: cleanName, theme, icon, tagline: cleanTagline || null })
+      .eq('id', crew.id)
+      .select('id, name, created_by, theme, icon, tagline')
+      .single()
+
+    if (updateError) {
+      setError(`Could not update crew: ${updateError.message}`)
+      setLoading(false)
+      return
+    }
+
+    showToast('Crew updated.', 'success')
+    onDone(data)
+    onClose()
+    setLoading(false)
+  }
+
+  return (
+    <Modal>
+      <>
+        <div className="fixed inset-0 bg-black/50 z-[60]" onClick={onClose} />
+        <div className="fixed bottom-0 left-0 right-0 z-[60] bg-white rounded-t-[20px] p-6 max-h-[88vh] overflow-y-auto">
+          <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-4" />
+          <h3 className="font-black text-lg text-gray-900 mb-1">Customize crew</h3>
+          <p className="text-sm text-gray-500 mb-4">Give this crew a little personality.</p>
+          <input className="input-field mb-3" placeholder="Crew name" value={name} onChange={e => setName(e.target.value)} />
+          <input className="input-field mb-3" placeholder="Tagline (optional)" value={tagline} maxLength={80} onChange={e => setTagline(e.target.value)} />
+          <div className="mb-3">
+            <p className="text-[10px] uppercase font-black text-gray-400 mb-2">Icon</p>
+            <div className="grid grid-cols-8 gap-1.5">
+              {CREW_ICONS.map(item => (
+                <button
+                  key={item}
+                  type="button"
+                  onClick={() => setIcon(item)}
+                  className={`h-9 rounded-[10px] text-lg ${icon === item ? 'bg-[#1D9E75] text-white' : 'bg-gray-100'}`}
+                >
+                  {item}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="mb-4">
+            <p className="text-[10px] uppercase font-black text-gray-400 mb-2">Theme</p>
+            <div className="grid grid-cols-2 gap-2">
+              {Object.entries(CREW_THEMES).map(([key, item]) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setTheme(key)}
+                  className={`rounded-[12px] p-2 text-left border ${theme === key ? 'border-[#1D9E75]' : 'border-gray-100'}`}
+                >
+                  <span className={`block h-8 rounded-[8px] bg-gradient-to-r ${item.card} mb-1`} />
+                  <span className="text-xs font-black text-gray-700">{item.name}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+          {error && <p className="text-red-500 text-xs mb-3">{error}</p>}
+          <button onClick={save} className="btn-primary disabled:opacity-50 mb-2" disabled={loading || !canSubmit}>{loading ? 'Saving…' : 'Save crew'}</button>
+          <button onClick={onClose} className="w-full py-2 text-sm text-gray-400">Cancel</button>
+        </div>
+      </>
     </Modal>
   )
 }
@@ -260,6 +431,7 @@ export default function Crew({ user, userProfile, onFriendRequestsChange }) {
   const [showCrewModal, setShowCrewModal] = useState(false)
   const [showLeaderboard, setShowLeaderboard] = useState(false)
   const [confirmDeleteCrew, setConfirmDeleteCrew] = useState(null)
+  const [editingCrew, setEditingCrew] = useState(null)
   const [search, setSearch] = useState('')
   const [searchResults, setSearchResults] = useState([])
 
@@ -268,7 +440,7 @@ export default function Crew({ user, userProfile, onFriendRequestsChange }) {
   const fetchAll = async () => {
     setLoading(true)
     const [crewRes, friendRes, incomingRes, sentRes] = await Promise.all([
-      supabase.from('crew_members').select('crew_id, crews(id, name, created_by)').eq('user_id', user.id),
+      supabase.from('crew_members').select('crew_id, crews(id, name, created_by, theme, icon, tagline)').eq('user_id', user.id),
       supabase.from('friends').select('friend_id').eq('user_id', user.id),
       supabase.from('friend_requests')
         .select('id, from_id, created_at, profiles!friend_requests_from_id_fkey(id, name, avatar_url, home_course)')
@@ -497,6 +669,14 @@ export default function Crew({ user, userProfile, onFriendRequestsChange }) {
     showToast('Crew deleted.', 'success')
   }
 
+  const handleCrewUpdated = (updatedCrew) => {
+    setCrews(list => list.map(c => c.id === updatedCrew.id ? { ...c, ...updatedCrew } : c))
+    setCrewJoinRequests(reqs => reqs.map(req => (
+      req.crew_id === updatedCrew.id ? { ...req, crew: { ...req.crew, ...updatedCrew } } : req
+    )))
+    if (activeChat?.id === updatedCrew.id) setActiveChat({ ...activeChat, ...updatedCrew })
+  }
+
   const getAddState = (id) => {
     if (friendIds.has(id)) return 'friends'
     if (sentRequestIds.has(id)) return 'sent'
@@ -672,27 +852,40 @@ export default function Crew({ user, userProfile, onFriendRequestsChange }) {
                 <h2 className="section-label mb-2">Your crews</h2>
                 <div className="space-y-2">
                   {crews.map(crew => (
-                    <div key={crew.id} className="bg-white rounded-[18px] border border-gray-100 shadow-sm p-4">
-                      <div className="flex items-center justify-between mb-2">
+                    <div key={crew.id} className={`rounded-[20px] shadow-sm overflow-hidden bg-gradient-to-r ${getCrewTheme(crew.theme).card}`}>
+                      <div className="p-4 text-white">
+                      <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-[12px] bg-[#1D9E75]/10 flex items-center justify-center text-xl">🤝</div>
+                          <div className="w-11 h-11 rounded-[14px] bg-white/20 flex items-center justify-center text-2xl">{crew.icon || '🤝'}</div>
                           <div>
-                            <p className="font-black text-sm text-gray-900">{crew.name}</p>
-                            <p className="text-xs text-gray-400">{crew.memberCount || 1} member{crew.memberCount !== 1 ? 's' : ''}</p>
+                            <p className="font-black text-base">{crew.name}</p>
+                            <p className="text-xs text-white/70">{crew.tagline || `${crew.memberCount || 1} member${crew.memberCount !== 1 ? 's' : ''}`}</p>
                           </div>
                         </div>
                         <button onClick={() => setActiveChat(crew)}
-                          className="text-sm bg-[#1D9E75] text-white px-3 py-2 rounded-[10px] font-black">
+                          className="text-sm bg-white text-gray-900 px-3 py-2 rounded-[10px] font-black">
                           Chat
                         </button>
                       </div>
+                      <div className="flex items-center justify-between text-xs text-white/70 mb-3">
+                        <span>{crew.memberCount || 1} member{crew.memberCount !== 1 ? 's' : ''}</span>
+                        <span>{getCrewTheme(crew.theme).name} theme</span>
+                      </div>
                       {crew.created_by === user.id && (
-                        <button
-                          onClick={() => setConfirmDeleteCrew(crew)}
-                          className="w-full text-xs text-red-500 font-black bg-red-50 rounded-[10px] py-2 mb-2 active:opacity-70"
-                        >
-                          Delete crew
-                        </button>
+                        <div className="grid grid-cols-2 gap-2 mb-2">
+                          <button
+                            onClick={() => setEditingCrew(crew)}
+                            className="w-full text-xs text-white font-black bg-white/18 rounded-[10px] py-2 active:opacity-70"
+                          >
+                            Customize
+                          </button>
+                          <button
+                            onClick={() => setConfirmDeleteCrew(crew)}
+                            className="w-full text-xs text-white font-black bg-red-500/75 rounded-[10px] py-2 active:opacity-70"
+                          >
+                            Delete
+                          </button>
+                        </div>
                       )}
                       <button
                         onClick={() => {
@@ -700,10 +893,11 @@ export default function Crew({ user, userProfile, onFriendRequestsChange }) {
                           if (navigator.share) navigator.share({ title: `Join ${crew.name} on SwingSwipe`, text })
                           else navigator.clipboard?.writeText(crew.name).then(() => showToast('Crew name copied.', 'success'))
                         }}
-                        className="w-full text-xs text-[#064e35] font-black bg-[#1D9E75]/10 rounded-[10px] py-2 flex items-center justify-center gap-1.5 active:opacity-70"
+                        className="w-full text-xs text-white font-black bg-white/18 rounded-[10px] py-2 flex items-center justify-center gap-1.5 active:opacity-70"
                       >
                         🔗 Invite friends — share crew name
                       </button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -767,6 +961,13 @@ export default function Crew({ user, userProfile, onFriendRequestsChange }) {
 
       {activeChat && <CrewChat crew={activeChat} currentUserId={user.id} onClose={() => setActiveChat(null)} />}
       {showCrewModal && <ManageCrewModal userId={user.id} onClose={() => setShowCrewModal(false)} onDone={fetchAll} />}
+      {editingCrew && (
+        <EditCrewModal
+          crew={editingCrew}
+          onClose={() => setEditingCrew(null)}
+          onDone={handleCrewUpdated}
+        />
+      )}
       {confirmDeleteCrew && (
         <ConfirmSheet
           title="Delete this crew?"
