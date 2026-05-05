@@ -416,8 +416,55 @@ function EditCrewModal({ crew, onClose, onDone }) {
   )
 }
 
+function CrewMembersModal({ crew, members, currentUserId, onClose, onProfileTap }) {
+  return (
+    <Modal>
+      <>
+        <div className="fixed inset-0 bg-black/50 z-[60]" onClick={onClose} />
+        <div className="fixed bottom-0 left-0 right-0 z-[60] bg-white rounded-t-[20px] p-6 max-h-[78vh] overflow-y-auto">
+          <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-4" />
+          <div className="flex items-center gap-3 mb-5">
+            <div className={`w-12 h-12 rounded-[14px] bg-gradient-to-r ${getCrewTheme(crew.theme).card} flex items-center justify-center text-2xl text-white`}>
+              {crew.icon || '🤝'}
+            </div>
+            <div>
+              <h3 className="font-black text-lg text-gray-900">{crew.name}</h3>
+              <p className="text-xs text-gray-400">{members.length} member{members.length !== 1 ? 's' : ''}</p>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            {members.map(member => {
+              const profile = member.profile
+              const isCreator = member.user_id === crew.created_by
+              const isMe = member.user_id === currentUserId
+              return (
+                <button
+                  key={member.user_id}
+                  onClick={() => onProfileTap(member.user_id)}
+                  className="w-full bg-gray-50 rounded-[14px] p-3 flex items-center gap-3 text-left active:opacity-75"
+                >
+                  <Avatar name={profile?.name} url={profile?.avatar_url} size={11} />
+                  <div className="flex-1 min-w-0">
+                    <p className="font-black text-sm text-gray-900 truncate">{profile?.name || 'Golfer'}{isMe ? ' · You' : ''}</p>
+                    <p className="text-xs text-gray-400 truncate">{profile?.home_course || 'No home course'}</p>
+                  </div>
+                  {isCreator && <span className="text-[10px] font-black text-[#064e35] bg-[#e8f5ef] rounded-full px-2 py-1">Captain</span>}
+                </button>
+              )
+            })}
+          </div>
+
+          <button onClick={onClose} className="w-full py-3 text-sm text-gray-400 mt-3">Close</button>
+        </div>
+      </>
+    </Modal>
+  )
+}
+
 export default function Crew({ user, userProfile, onFriendRequestsChange }) {
   const [crews, setCrews] = useState([])
+  const [crewMembers, setCrewMembers] = useState({})
   const [friends, setFriends] = useState([])
   const [listings, setListings] = useState([])
   const [incomingRequests, setIncomingRequests] = useState([])
@@ -431,7 +478,9 @@ export default function Crew({ user, userProfile, onFriendRequestsChange }) {
   const [showCrewModal, setShowCrewModal] = useState(false)
   const [showLeaderboard, setShowLeaderboard] = useState(false)
   const [confirmDeleteCrew, setConfirmDeleteCrew] = useState(null)
+  const [confirmLeaveCrew, setConfirmLeaveCrew] = useState(null)
   const [editingCrew, setEditingCrew] = useState(null)
+  const [viewingCrewMembers, setViewingCrewMembers] = useState(null)
   const [search, setSearch] = useState('')
   const [searchResults, setSearchResults] = useState([])
 
@@ -450,15 +499,30 @@ export default function Crew({ user, userProfile, onFriendRequestsChange }) {
 
     const crewList = crewRes.data?.map(r => r.crews).filter(Boolean) || []
 
-    // Fetch member counts for each crew
+    // Fetch member profiles for each crew
     if (crewList.length) {
-      const { data: counts } = await supabase
+      const { data: memberRows } = await supabase
         .from('crew_members')
-        .select('crew_id')
+        .select('crew_id, user_id')
         .in('crew_id', crewList.map(c => c.id))
-      const countMap = {}
-      counts?.forEach(r => { countMap[r.crew_id] = (countMap[r.crew_id] || 0) + 1 })
-      crewList.forEach(c => { c.memberCount = countMap[c.id] || 1 })
+      const memberProfileIds = [...new Set(memberRows?.map(r => r.user_id) || [])]
+      const memberProfileMap = {}
+      if (memberProfileIds.length) {
+        const { data: memberProfiles } = await supabase
+          .from('profiles')
+          .select('id, name, avatar_url, home_course')
+          .in('id', memberProfileIds)
+        memberProfiles?.forEach(p => { memberProfileMap[p.id] = p })
+      }
+      const membersByCrew = {}
+      memberRows?.forEach(row => {
+        if (!membersByCrew[row.crew_id]) membersByCrew[row.crew_id] = []
+        membersByCrew[row.crew_id].push({ ...row, profile: memberProfileMap[row.user_id] })
+      })
+      crewList.forEach(c => { c.memberCount = membersByCrew[c.id]?.length || 1 })
+      setCrewMembers(membersByCrew)
+    } else {
+      setCrewMembers({})
     }
 
     setCrews(crewList)
@@ -669,12 +733,41 @@ export default function Crew({ user, userProfile, onFriendRequestsChange }) {
     showToast('Crew deleted.', 'success')
   }
 
+  const leaveCrew = async () => {
+    if (!confirmLeaveCrew) return
+
+    const crewId = confirmLeaveCrew.id
+    const { error } = await supabase
+      .from('crew_members')
+      .delete()
+      .eq('crew_id', crewId)
+      .eq('user_id', user.id)
+
+    if (error) {
+      showToast(`Could not leave crew: ${error.message}`)
+      return
+    }
+
+    setCrews(list => list.filter(c => c.id !== crewId))
+    setCrewJoinRequests(reqs => reqs.filter(r => r.crew_id !== crewId))
+    setCrewMembers(map => {
+      const next = { ...map }
+      delete next[crewId]
+      return next
+    })
+    if (activeChat?.id === crewId) setActiveChat(null)
+    if (viewingCrewMembers?.id === crewId) setViewingCrewMembers(null)
+    setConfirmLeaveCrew(null)
+    showToast('You left the crew.', 'success')
+  }
+
   const handleCrewUpdated = (updatedCrew) => {
     setCrews(list => list.map(c => c.id === updatedCrew.id ? { ...c, ...updatedCrew } : c))
     setCrewJoinRequests(reqs => reqs.map(req => (
       req.crew_id === updatedCrew.id ? { ...req, crew: { ...req.crew, ...updatedCrew } } : req
     )))
     if (activeChat?.id === updatedCrew.id) setActiveChat({ ...activeChat, ...updatedCrew })
+    if (viewingCrewMembers?.id === updatedCrew.id) setViewingCrewMembers({ ...viewingCrewMembers, ...updatedCrew })
   }
 
   const getAddState = (id) => {
@@ -871,6 +964,22 @@ export default function Crew({ user, userProfile, onFriendRequestsChange }) {
                         <span>{crew.memberCount || 1} member{crew.memberCount !== 1 ? 's' : ''}</span>
                         <span>{getCrewTheme(crew.theme).name} theme</span>
                       </div>
+                      <button
+                        onClick={() => setViewingCrewMembers(crew)}
+                        className="w-full flex items-center justify-between bg-white/14 rounded-[12px] px-3 py-2 mb-2 active:opacity-75"
+                      >
+                        <div className="flex -space-x-2">
+                          {(crewMembers[crew.id] || []).slice(0, 4).map(member => (
+                            <div key={member.user_id} className="ring-2 ring-white/40 rounded-full">
+                              <Avatar name={member.profile?.name} url={member.profile?.avatar_url} size={8} />
+                            </div>
+                          ))}
+                          {(crewMembers[crew.id] || []).length === 0 && (
+                            <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-xs font-black">?</div>
+                          )}
+                        </div>
+                        <span className="text-xs font-black text-white">View members →</span>
+                      </button>
                       {crew.created_by === user.id && (
                         <div className="grid grid-cols-2 gap-2 mb-2">
                           <button
@@ -886,6 +995,14 @@ export default function Crew({ user, userProfile, onFriendRequestsChange }) {
                             Delete
                           </button>
                         </div>
+                      )}
+                      {crew.created_by !== user.id && (
+                        <button
+                          onClick={() => setConfirmLeaveCrew(crew)}
+                          className="w-full text-xs text-white font-black bg-red-500/70 rounded-[10px] py-2 mb-2 active:opacity-70"
+                        >
+                          Leave crew
+                        </button>
                       )}
                       <button
                         onClick={() => {
@@ -968,6 +1085,18 @@ export default function Crew({ user, userProfile, onFriendRequestsChange }) {
           onDone={handleCrewUpdated}
         />
       )}
+      {viewingCrewMembers && (
+        <CrewMembersModal
+          crew={viewingCrewMembers}
+          members={crewMembers[viewingCrewMembers.id] || []}
+          currentUserId={user.id}
+          onClose={() => setViewingCrewMembers(null)}
+          onProfileTap={id => {
+            setViewingCrewMembers(null)
+            setViewingProfile(id)
+          }}
+        />
+      )}
       {confirmDeleteCrew && (
         <ConfirmSheet
           title="Delete this crew?"
@@ -976,6 +1105,16 @@ export default function Crew({ user, userProfile, onFriendRequestsChange }) {
           danger
           onConfirm={deleteCrew}
           onCancel={() => setConfirmDeleteCrew(null)}
+        />
+      )}
+      {confirmLeaveCrew && (
+        <ConfirmSheet
+          title="Leave this crew?"
+          message={`You will leave ${confirmLeaveCrew.name}. The crew stays open for everyone else.`}
+          confirmLabel="Leave crew"
+          danger
+          onConfirm={leaveCrew}
+          onCancel={() => setConfirmLeaveCrew(null)}
         />
       )}
       {viewingProfile && <PublicProfileModal userId={viewingProfile} currentUserId={user.id} onClose={() => setViewingProfile(null)} />}
