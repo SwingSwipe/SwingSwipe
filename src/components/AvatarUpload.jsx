@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react'
 import { supabase } from '../supabase'
 import Avatar from './Avatar'
+import { showToast } from './Toast'
 
 export default function AvatarUpload({ userId, name, currentUrl, onUploaded }) {
   const [uploading, setUploading] = useState(false)
@@ -12,7 +13,7 @@ export default function AvatarUpload({ userId, name, currentUrl, onUploaded }) {
     if (!file) return
 
     if (file.size > 5 * 1024 * 1024) {
-      alert('Photo must be under 5MB')
+      showToast('Photo must be under 5MB.')
       return
     }
 
@@ -29,7 +30,7 @@ export default function AvatarUpload({ userId, name, currentUrl, onUploaded }) {
       .upload(path, file, { upsert: true, contentType: file.type })
 
     if (error) {
-      alert('Upload failed. Try again.')
+      showToast(`Upload failed: ${error.message}`)
       setPreview(currentUrl)
       setUploading(false)
       return
@@ -43,6 +44,7 @@ export default function AvatarUpload({ userId, name, currentUrl, onUploaded }) {
     const urlWithBust = `${publicUrl}?t=${Date.now()}`
     setPreview(urlWithBust)
     onUploaded(urlWithBust)
+    showToast('Photo updated.', 'success')
     setUploading(false)
   }
 

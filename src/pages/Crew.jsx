@@ -510,7 +510,7 @@ export default function Crew({ user, userProfile, onFriendRequestsChange }) {
                         onClick={() => {
                           const text = `Join my crew "${crew.name}" on SwingSwipe ⛳\n\nOpen SwingSwipe → Crew tab → tap "+ Crew" → Join crew → type: ${crew.name}`
                           if (navigator.share) navigator.share({ title: `Join ${crew.name} on SwingSwipe`, text })
-                          else navigator.clipboard?.writeText(crew.name).then(() => alert('Crew name copied!'))
+                          else navigator.clipboard?.writeText(crew.name).then(() => showToast('Crew name copied.', 'success'))
                         }}
                         className="w-full text-xs text-[#064e35] font-black bg-[#1D9E75]/10 rounded-[10px] py-2 flex items-center justify-center gap-1.5 active:opacity-70"
                       >

@@ -4,6 +4,8 @@ import Avatar from '../components/Avatar'
 import AvatarUpload from '../components/AvatarUpload'
 import Modal from '../components/Modal'
 import CourseInput from '../components/CourseInput'
+import ConfirmSheet from '../components/ConfirmSheet'
+import { showToast } from '../components/Toast'
 
 function LogRoundModal({ userId, onClose, onSaved }) {
   const today = new Date().toISOString().split('T')[0]
@@ -227,6 +229,7 @@ export default function Profile({ user }) {
   const [loading, setLoading] = useState(true)
   const [showEdit, setShowEdit] = useState(false)
   const [showLogRound, setShowLogRound] = useState(false)
+  const [confirmRoundDelete, setConfirmRoundDelete] = useState(null)
 
   useEffect(() => { fetchProfile() }, [])
 
@@ -267,6 +270,19 @@ export default function Profile({ user }) {
   const handleSignOut = async () => {
     await supabase.auth.signOut()
     window.location.reload()
+  }
+
+  const deleteRound = async () => {
+    const round = recentRounds.find(r => r.id === confirmRoundDelete)
+    setConfirmRoundDelete(null)
+    if (!round) return
+    const { error } = await supabase.from('round_logs').delete().eq('id', round.id)
+    if (error) {
+      showToast(`Could not delete round: ${error.message}`)
+      return
+    }
+    showToast('Round deleted.', 'success')
+    fetchProfile()
   }
 
   if (loading) return (
@@ -500,11 +516,7 @@ export default function Profile({ user }) {
                       <p className="text-[10px] text-gray-400">strokes</p>
                     </div>
                     <button
-                      onClick={async () => {
-                        if (!confirm('Delete this round?')) return
-                        await supabase.from('round_logs').delete().eq('id', r.id)
-                        fetchProfile()
-                      }}
+                      onClick={() => setConfirmRoundDelete(r.id)}
                       className="w-7 h-7 flex items-center justify-center text-gray-300 hover:text-red-400 active:text-red-500 transition-colors"
                     >
                       ✕
@@ -539,6 +551,15 @@ export default function Profile({ user }) {
       )}
       {showLogRound && (
         <LogRoundModal userId={user.id} onClose={() => setShowLogRound(false)} onSaved={fetchProfile} />
+      )}
+      {confirmRoundDelete && (
+        <ConfirmSheet
+          title="Delete this round?"
+          message="This removes the score from your season stats."
+          confirmLabel="Delete round"
+          onConfirm={deleteRound}
+          onCancel={() => setConfirmRoundDelete(null)}
+        />
       )}
     </div>
   )

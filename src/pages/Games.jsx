@@ -443,17 +443,31 @@ export default function Games({ user }) {
   }
 
   const handleAcceptInvite = async (invite) => {
-    await supabase.from('round_requests').update({ status: 'accepted' }).eq('id', invite.id)
+    const { error: requestError } = await supabase.from('round_requests').update({ status: 'accepted' }).eq('id', invite.id)
+    if (requestError) {
+      showToast(`Could not accept invite: ${requestError.message}`)
+      return
+    }
     const newFilled = (invite.round_listings.spots_filled || 1) + 1
     const isFull = newFilled >= invite.round_listings.spots_total
-    await supabase.from('round_listings')
+    const { error: listingError } = await supabase.from('round_listings')
       .update({ spots_filled: newFilled, ...(isFull && { is_active: false }) })
       .eq('id', invite.listing_id)
+    if (listingError) {
+      showToast(`Invite accepted, but game count failed: ${listingError.message}`)
+      return
+    }
+    showToast('Invite accepted.', 'success')
     fetchGames()
   }
 
   const handleDeclineInvite = async (inviteId) => {
-    await supabase.from('round_requests').delete().eq('id', inviteId)
+    const { error } = await supabase.from('round_requests').delete().eq('id', inviteId)
+    if (error) {
+      showToast(`Could not decline invite: ${error.message}`)
+      return
+    }
+    showToast('Invite declined.', 'success')
     fetchGames()
   }
 
