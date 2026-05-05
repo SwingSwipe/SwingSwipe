@@ -107,47 +107,83 @@ function CrewChat({ crew, currentUserId, onClose }) {
 }
 
 function ManageCrewModal({ userId, onClose, onDone }) {
-  const [tab, setTab] = useState('join')
+  const [tab, setTab] = useState('create')
   const [name, setName] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const cleanName = name.trim().replace(/\s+/g, ' ')
+  const canSubmit = cleanName.length >= 2
+
+  const updateName = (value) => {
+    setName(value)
+    if (error) setError('')
+  }
 
   const join = async () => {
-    if (!name.trim()) return
+    if (!canSubmit) return
     setLoading(true)
     setError('')
-    const { data: crew } = await supabase
+    const { data: crew, error: crewError } = await supabase
       .from('crews')
-      .select('id')
-      .ilike('name', name.trim())
-      .single()
+      .select('id, name')
+      .ilike('name', cleanName)
+      .maybeSingle()
 
-    if (!crew) { setError('Crew not found. Check the name and try again.'); setLoading(false); return }
+    if (crewError) {
+      setError(`Could not search crews: ${crewError.message}`)
+      setLoading(false)
+      return
+    }
+
+    if (!crew) {
+      setError(`No crew named "${cleanName}" yet. Switch to Create crew to make it.`)
+      setLoading(false)
+      return
+    }
 
     const { error: joinError } = await supabase
       .from('crew_members')
       .insert({ crew_id: crew.id, user_id: userId })
 
-    if (joinError) { setError('Already in this crew or something went wrong.'); setLoading(false); return }
+    if (joinError) {
+      setError(joinError.code === '23505' ? 'You are already in this crew.' : `Could not join: ${joinError.message}`)
+      setLoading(false)
+      return
+    }
 
+    showToast(`Joined ${crew.name}.`, 'success')
     onDone()
     onClose()
     setLoading(false)
   }
 
   const create = async () => {
-    if (!name.trim()) return
+    if (!canSubmit) return
     setLoading(true)
     setError('')
     const { data: crew, error: createError } = await supabase
       .from('crews')
-      .insert({ name: name.trim(), created_by: userId })
-      .select('id')
+      .insert({ name: cleanName, created_by: userId })
+      .select('id, name')
       .single()
 
-    if (createError) { setError('A crew with that name may already exist.'); setLoading(false); return }
+    if (createError) {
+      setError(createError.code === '23505' ? 'A crew with that name already exists. Switch to Join existing.' : `Could not create crew: ${createError.message}`)
+      setLoading(false)
+      return
+    }
 
-    await supabase.from('crew_members').insert({ crew_id: crew.id, user_id: userId })
+    const { error: memberError } = await supabase
+      .from('crew_members')
+      .insert({ crew_id: crew.id, user_id: userId })
+
+    if (memberError) {
+      setError(`Crew was created, but we could not add you: ${memberError.message}`)
+      setLoading(false)
+      return
+    }
+
+    showToast(`Created ${crew.name}. Share the name with friends.`, 'success')
     onDone()
     onClose()
     setLoading(false)
@@ -171,17 +207,25 @@ function ManageCrewModal({ userId, onClose, onDone }) {
         </div>
         {tab === 'join' ? (
           <>
-            <p className="text-sm text-gray-500 mb-4">Ask your friend for their crew name and enter it below.</p>
-            <input className="input-field mb-3" placeholder="Crew name" value={name} onChange={e => setName(e.target.value)} />
+            <p className="text-sm text-gray-500 mb-3">Join an existing crew by name. Ask a friend to share it from their crew card.</p>
+            <div className="rounded-[12px] bg-[#e8f5ef] border border-[#d7eee5] p-3 mb-4">
+              <p className="text-xs font-bold text-[#064e35]">How joining works</p>
+              <p className="text-xs text-[#3d6b59] mt-1">Type the crew name exactly as your friend shared it, then tap Join.</p>
+            </div>
+            <input className="input-field mb-3" placeholder="Crew name" value={name} onChange={e => updateName(e.target.value)} />
             {error && <p className="text-red-500 text-xs mb-3">{error}</p>}
-            <button onClick={join} className="btn-primary" disabled={loading}>{loading ? 'Joining…' : 'Join Crew'}</button>
+            <button onClick={join} className="btn-primary disabled:opacity-50" disabled={loading || !canSubmit}>{loading ? 'Joining…' : 'Join existing crew'}</button>
           </>
         ) : (
           <>
-            <p className="text-sm text-gray-500 mb-4">Create a crew and share the name with your playing partners so they can join.</p>
-            <input className="input-field mb-3" placeholder="Crew name (e.g. Saturday Boys)" value={name} onChange={e => setName(e.target.value)} />
+            <p className="text-sm text-gray-500 mb-3">Create a named crew. Friends can join later by typing this exact name.</p>
+            <div className="rounded-[12px] bg-[#e8f5ef] border border-[#d7eee5] p-3 mb-4">
+              <p className="text-xs font-bold text-[#064e35]">How friends join</p>
+              <p className="text-xs text-[#3d6b59] mt-1">After creating, tap Invite friends on the crew card to share the crew name.</p>
+            </div>
+            <input className="input-field mb-3" placeholder="Crew name (e.g. Saturday Boys)" value={name} onChange={e => updateName(e.target.value)} />
             {error && <p className="text-red-500 text-xs mb-3">{error}</p>}
-            <button onClick={create} className="btn-primary" disabled={loading}>{loading ? 'Creating…' : 'Create Crew ⛳'}</button>
+            <button onClick={create} className="btn-primary disabled:opacity-50" disabled={loading || !canSubmit}>{loading ? 'Creating…' : 'Create crew'}</button>
           </>
         )}
       </div>
