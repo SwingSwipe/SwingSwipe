@@ -5,6 +5,8 @@ import Modal from '../components/Modal'
 import RoundCard from '../components/RoundCard'
 import PublicProfileModal from '../components/PublicProfileModal'
 import Leaderboard from './Leaderboard'
+import HeroHeader from '../components/HeroHeader'
+import { showToast } from '../components/Toast'
 
 function CrewChat({ crew, currentUserId, onClose }) {
   const [messages, setMessages] = useState([])
@@ -296,6 +298,8 @@ export default function Crew({ user, userProfile, onFriendRequestsChange }) {
           body: `${listing.course_name} · ${date}`,
         },
       })
+    } else {
+      showToast('Could not request this game. Try again.')
     }
   }
 
@@ -311,11 +315,14 @@ export default function Crew({ user, userProfile, onFriendRequestsChange }) {
         next.delete(listing.id)
         return next
       })
+    } else {
+      showToast('Could not cancel request. Try again.')
     }
   }
 
   const sendRequest = async (toId) => {
-    await supabase.from('friend_requests').insert({ from_id: user.id, to_id: toId, status: 'pending' })
+    const { error } = await supabase.from('friend_requests').insert({ from_id: user.id, to_id: toId, status: 'pending' })
+    if (error) { showToast('Could not send friend request.'); return }
     setSentRequestIds(s => new Set([...s, toId]))
     const senderName = userProfile?.name?.split(' ')[0] || 'Someone'
     supabase.functions.invoke('send-push', {
@@ -328,11 +335,13 @@ export default function Crew({ user, userProfile, onFriendRequestsChange }) {
   }
 
   const acceptRequest = async (req) => {
-    await supabase.from('friend_requests').update({ status: 'accepted' }).eq('id', req.id)
-    await supabase.from('friends').insert([
+    const { error: acceptError } = await supabase.from('friend_requests').update({ status: 'accepted' }).eq('id', req.id)
+    if (acceptError) { showToast('Could not accept request.'); return }
+    const { error: friendError } = await supabase.from('friends').insert([
       { user_id: user.id, friend_id: req.from_id },
       { user_id: req.from_id, friend_id: user.id },
     ])
+    if (friendError) { showToast('Could not add friend.'); return }
     const myName = userProfile?.name?.split(' ')[0] || 'Someone'
     supabase.functions.invoke('send-push', {
       body: {
@@ -345,7 +354,8 @@ export default function Crew({ user, userProfile, onFriendRequestsChange }) {
   }
 
   const declineRequest = async (reqId) => {
-    await supabase.from('friend_requests').update({ status: 'declined' }).eq('id', reqId)
+    const { error } = await supabase.from('friend_requests').update({ status: 'declined' }).eq('id', reqId)
+    if (error) { showToast('Could not decline request.'); return }
     setIncomingRequests(r => r.filter(x => x.id !== reqId))
     onFriendRequestsChange?.(incomingRequests.length - 1)
   }
@@ -358,20 +368,12 @@ export default function Crew({ user, userProfile, onFriendRequestsChange }) {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="page-header">
-        {/* People decoration */}
-        <svg className="absolute right-3 top-5 opacity-10" width="80" height="72" viewBox="0 0 80 72" fill="none">
-          <circle cx="28" cy="18" r="12" fill="white"/>
-          <path d="M4 60 Q4 40 28 40 Q52 40 52 60" fill="white"/>
-          <circle cx="56" cy="20" r="10" fill="white"/>
-          <path d="M36 62 Q40 44 56 44 Q72 44 76 62" fill="white"/>
-        </svg>
-        <p className="text-white/60 text-xs font-semibold uppercase tracking-widest mb-1">Your people</p>
-        <div className="flex items-center justify-between mb-3">
-          <div>
-            <h1 className="text-white text-2xl font-black mb-0.5">Crew 🤝</h1>
-            <p className="text-white/70 text-xs">Friends, groups and who's playing</p>
-          </div>
+      <HeroHeader
+        eyebrow="Your people"
+        title="Crew"
+        subtitle="Friends, groups and who's playing"
+        icon="🤝"
+        action={(
           <div className="flex gap-2">
             <button onClick={() => setShowLeaderboard(true)} className="text-sm bg-white/20 text-white px-3 py-1.5 rounded-[10px] font-bold">
               🏆
@@ -379,6 +381,21 @@ export default function Crew({ user, userProfile, onFriendRequestsChange }) {
             <button onClick={() => setShowCrewModal(true)} className="text-sm bg-white text-[#1D9E75] px-3 py-1.5 rounded-[10px] font-bold shadow-sm">
               + Crew
             </button>
+          </div>
+        )}
+      >
+        <div className="grid grid-cols-3 gap-2 mb-3">
+          <div className="bg-white/12 rounded-[12px] px-3 py-2">
+            <p className="text-[10px] uppercase font-black text-white/50">Friends</p>
+            <p className="text-sm font-black text-white">{friends.length}</p>
+          </div>
+          <div className="bg-white/12 rounded-[12px] px-3 py-2">
+            <p className="text-[10px] uppercase font-black text-white/50">Crews</p>
+            <p className="text-sm font-black text-white">{crews.length}</p>
+          </div>
+          <div className="bg-white/12 rounded-[12px] px-3 py-2">
+            <p className="text-[10px] uppercase font-black text-white/50">Games</p>
+            <p className="text-sm font-black text-white">{listings.length}</p>
           </div>
         </div>
         <div className="flex gap-2">
@@ -391,7 +408,7 @@ export default function Crew({ user, userProfile, onFriendRequestsChange }) {
           />
           <button onClick={handleSearch} className="px-4 py-2.5 bg-white text-[#1D9E75] rounded-[10px] text-sm font-bold shadow-sm">Find</button>
         </div>
-      </div>
+      </HeroHeader>
 
       <div className="flex-1 overflow-y-auto px-4 py-4 pb-24">
         {/* Search results */}
@@ -402,18 +419,20 @@ export default function Crew({ user, userProfile, onFriendRequestsChange }) {
               {searchResults.map(p => {
                 const state = getAddState(p.id)
                 return (
-                  <div key={p.id} className="card p-3 flex items-center gap-3">
-                    <Avatar name={p.name} url={p.avatar_url} size={10} />
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-sm">{p.name}</p>
+                  <div key={p.id} className="bg-white rounded-[16px] border border-gray-100 shadow-sm p-3 flex items-center gap-3">
+                    <button onClick={() => setViewingProfile(p.id)} className="shrink-0 active:opacity-75">
+                      <Avatar name={p.name} url={p.avatar_url} size={11} />
+                    </button>
+                    <button onClick={() => setViewingProfile(p.id)} className="flex-1 min-w-0 text-left active:opacity-75">
+                      <p className="font-black text-sm text-gray-900">{p.name}</p>
                       <p className="text-xs text-gray-400 truncate">{p.home_course || 'No home course'}</p>
-                    </div>
+                    </button>
                     {state === 'friends' ? (
                       <span className="text-xs text-[#1D9E75] font-semibold px-3 py-1.5">✓ Friends</span>
                     ) : state === 'sent' ? (
                       <span className="text-xs text-gray-400 font-semibold px-3 py-1.5">Requested</span>
                     ) : (
-                      <button onClick={() => sendRequest(p.id)} className="text-xs bg-[#1D9E75] text-white px-3 py-1.5 rounded-[8px] font-semibold">
+                      <button onClick={() => sendRequest(p.id)} className="text-xs bg-[#1D9E75] text-white px-3 py-2 rounded-[10px] font-black">
                         + Add
                       </button>
                     )}
@@ -433,27 +452,31 @@ export default function Crew({ user, userProfile, onFriendRequestsChange }) {
             {/* Friend requests inbox */}
             {incomingRequests.length > 0 && (
               <div className="mb-5">
-                <h2 className="section-label mb-2">Friend requests <span className="text-[#1D9E75]">({incomingRequests.length})</span></h2>
+                <div className="flex items-center justify-between mb-2">
+                  <h2 className="section-label">Friend requests</h2>
+                  <span className="text-[10px] font-black text-orange-600 bg-orange-50 px-2 py-1 rounded-full">{incomingRequests.length} pending</span>
+                </div>
                 <div className="space-y-2">
                   {incomingRequests.map(req => {
                     const p = req.profiles
                     return (
-                      <div key={req.id} className="card p-3 flex items-center gap-3">
-                        <button onClick={() => setViewingProfile(req.from_id)}>
-                          <Avatar name={p?.name} url={p?.avatar_url} size={10} />
+                      <div key={req.id} className="bg-white rounded-[18px] border border-orange-100 shadow-sm p-3">
+                        <button className="w-full flex items-center gap-3 text-left active:opacity-75" onClick={() => setViewingProfile(req.from_id)}>
+                          <Avatar name={p?.name} url={p?.avatar_url} size={11} />
+                          <div className="flex-1 min-w-0">
+                            <p className="font-black text-sm text-gray-900">{p?.name}</p>
+                            <p className="text-xs text-gray-400 truncate">{p?.home_course || 'No home course'}</p>
+                          </div>
+                          <span className="text-[10px] text-gray-400 font-bold">View →</span>
                         </button>
-                        <button className="flex-1 min-w-0 text-left" onClick={() => setViewingProfile(req.from_id)}>
-                          <p className="font-semibold text-sm">{p?.name}</p>
-                          <p className="text-xs text-gray-400 truncate">{p?.home_course || 'No home course'}</p>
-                        </button>
-                        <div className="flex gap-2 shrink-0">
-                          <button onClick={() => acceptRequest(req)}
-                            className="text-xs bg-[#1D9E75] text-white px-3 py-1.5 rounded-[8px] font-semibold">
-                            Accept
-                          </button>
+                        <div className="grid grid-cols-2 gap-2 mt-3">
                           <button onClick={() => declineRequest(req.id)}
-                            className="text-xs bg-gray-100 text-gray-500 px-3 py-1.5 rounded-[8px] font-semibold">
+                            className="h-10 bg-gray-100 text-gray-500 rounded-[12px] text-sm font-black active:scale-[0.98] transition-transform">
                             Decline
+                          </button>
+                          <button onClick={() => acceptRequest(req)}
+                            className="h-10 bg-[#1D9E75] text-white rounded-[12px] text-sm font-black active:scale-[0.98] transition-transform">
+                            Accept
                           </button>
                         </div>
                       </div>
@@ -469,15 +492,18 @@ export default function Crew({ user, userProfile, onFriendRequestsChange }) {
                 <h2 className="section-label mb-2">Your crews</h2>
                 <div className="space-y-2">
                   {crews.map(crew => (
-                    <div key={crew.id} className="card p-4">
+                    <div key={crew.id} className="bg-white rounded-[18px] border border-gray-100 shadow-sm p-4">
                       <div className="flex items-center justify-between mb-2">
-                        <div>
-                          <p className="font-semibold text-sm">{crew.name}</p>
-                          <p className="text-xs text-gray-400">{crew.memberCount || 1} member{crew.memberCount !== 1 ? 's' : ''}</p>
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-[12px] bg-[#1D9E75]/10 flex items-center justify-center text-xl">🤝</div>
+                          <div>
+                            <p className="font-black text-sm text-gray-900">{crew.name}</p>
+                            <p className="text-xs text-gray-400">{crew.memberCount || 1} member{crew.memberCount !== 1 ? 's' : ''}</p>
+                          </div>
                         </div>
                         <button onClick={() => setActiveChat(crew)}
-                          className="text-sm bg-[#1D9E75] text-white px-3 py-1.5 rounded-[8px] font-semibold">
-                          Chat 💬
+                          className="text-sm bg-[#1D9E75] text-white px-3 py-2 rounded-[10px] font-black">
+                          Chat
                         </button>
                       </div>
                       <button
@@ -486,7 +512,7 @@ export default function Crew({ user, userProfile, onFriendRequestsChange }) {
                           if (navigator.share) navigator.share({ title: `Join ${crew.name} on SwingSwipe`, text })
                           else navigator.clipboard?.writeText(crew.name).then(() => alert('Crew name copied!'))
                         }}
-                        className="w-full text-xs text-[#1D9E75] font-semibold bg-[#1D9E75]/8 rounded-[8px] py-1.5 flex items-center justify-center gap-1.5 active:opacity-70"
+                        className="w-full text-xs text-[#064e35] font-black bg-[#1D9E75]/10 rounded-[10px] py-2 flex items-center justify-center gap-1.5 active:opacity-70"
                       >
                         🔗 Invite friends — share crew name
                       </button>
@@ -497,10 +523,13 @@ export default function Crew({ user, userProfile, onFriendRequestsChange }) {
             )}
 
             {/* Playing this week */}
-            {listings.length > 0 && (
-              <div className="mb-5">
-                <h2 className="section-label mb-2">Playing this week</h2>
-                {listings.map(l => (
+            <div className="mb-5">
+              <div className="flex items-center justify-between mb-2">
+                <h2 className="section-label">Friends playing</h2>
+                {listings.length > 0 && <span className="text-[10px] font-black text-[#1D9E75] bg-[#1D9E75]/10 px-2 py-1 rounded-full">{listings.length}</span>}
+              </div>
+              {listings.length > 0 ? (
+                listings.map(l => (
                   <RoundCard
                     key={l.id}
                     listing={l}
@@ -510,21 +539,28 @@ export default function Crew({ user, userProfile, onFriendRequestsChange }) {
                     onHostTap={id => setViewingProfile(id)}
                     requested={requestedListings.has(l.id)}
                   />
-                ))}
-              </div>
-            )}
+                ))
+              ) : (
+                <div className="bg-white rounded-[18px] border border-gray-100 shadow-sm p-5 text-center">
+                  <div className="w-14 h-14 bg-[#1D9E75]/10 rounded-full flex items-center justify-center text-2xl mx-auto mb-3">⛳</div>
+                  <p className="font-black text-gray-800 text-sm">No friend games open</p>
+                  <p className="text-xs text-gray-500 mt-1">Invite friends or post a game so this feed starts moving.</p>
+                </div>
+              )}
+            </div>
 
             {/* Friends list */}
             <div>
               <h2 className="section-label mb-3">Golf crew</h2>
               {friends.length === 0 ? (
-                <div className="text-center py-8">
-                  <p className="text-3xl mb-2">🏌️</p>
-                  <p className="font-semibold text-gray-700">No friends yet</p>
-                  <p className="text-sm text-gray-400 mt-1">Search for golfers above to add them.</p>
+                <div className="bg-white rounded-[18px] border border-gray-100 shadow-sm text-center py-8 px-5">
+                  <div className="w-14 h-14 bg-[#1D9E75]/10 rounded-full flex items-center justify-center text-2xl mx-auto mb-3">🏌️</div>
+                  <p className="font-black text-gray-800">No friends yet</p>
+                  <p className="text-sm text-gray-500 mt-1">Search for golfers above or create a crew to start inviting people.</p>
                 </div>
               ) : (
-                <div className="flex gap-4 overflow-x-auto no-scrollbar pb-2">
+                <div className="bg-white rounded-[18px] border border-gray-100 shadow-sm p-3">
+                  <div className="flex gap-4 overflow-x-auto no-scrollbar pb-1">
                   {friends.map(f => (
                     <button key={f.id} onClick={() => setViewingProfile(f.id)} className="flex flex-col items-center gap-1.5 min-w-[60px] active:opacity-70">
                       <Avatar name={f.name} url={f.avatar_url} size={12} />
@@ -533,6 +569,7 @@ export default function Crew({ user, userProfile, onFriendRequestsChange }) {
                       </p>
                     </button>
                   ))}
+                  </div>
                 </div>
               )}
             </div>
