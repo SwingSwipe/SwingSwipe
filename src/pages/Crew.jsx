@@ -125,7 +125,7 @@ function ManageCrewModal({ userId, onClose, onDone }) {
     setError('')
     const { data: crew, error: crewError } = await supabase
       .from('crews')
-      .select('id, name')
+      .select('id, name, created_by')
       .ilike('name', cleanName)
       .maybeSingle()
 
@@ -141,17 +141,37 @@ function ManageCrewModal({ userId, onClose, onDone }) {
       return
     }
 
-    const { error: joinError } = await supabase
+    const { data: existingMember } = await supabase
       .from('crew_members')
-      .insert({ crew_id: crew.id, user_id: userId })
+      .select('crew_id')
+      .eq('crew_id', crew.id)
+      .eq('user_id', userId)
+      .maybeSingle()
 
-    if (joinError) {
-      setError(joinError.code === '23505' ? 'You are already in this crew.' : `Could not join: ${joinError.message}`)
+    if (existingMember) {
+      setError('You are already in this crew.')
       setLoading(false)
       return
     }
 
-    showToast(`Joined ${crew.name}.`, 'success')
+    const { error: joinError } = await supabase
+      .from('crew_join_requests')
+      .insert({ crew_id: crew.id, requester_id: userId, status: 'pending' })
+
+    if (joinError) {
+      setError(joinError.code === '23505' ? 'You already requested to join this crew.' : `Could not request to join: ${joinError.message}`)
+      setLoading(false)
+      return
+    }
+
+    supabase.functions.invoke('send-push', {
+      body: {
+        user_id: crew.created_by,
+        title: 'New crew request 🤝',
+        body: `${crew.name} has someone waiting for approval.`,
+      },
+    })
+    showToast(`Requested to join ${crew.name}.`, 'success')
     onDone()
     onClose()
     setLoading(false)
@@ -210,11 +230,11 @@ function ManageCrewModal({ userId, onClose, onDone }) {
             <p className="text-sm text-gray-500 mb-3">Join an existing crew by name. Ask a friend to share it from their crew card.</p>
             <div className="rounded-[12px] bg-[#e8f5ef] border border-[#d7eee5] p-3 mb-4">
               <p className="text-xs font-bold text-[#064e35]">How joining works</p>
-              <p className="text-xs text-[#3d6b59] mt-1">Type the crew name exactly as your friend shared it, then tap Join.</p>
+              <p className="text-xs text-[#3d6b59] mt-1">Type the crew name exactly as your friend shared it. A member has to approve you before you join.</p>
             </div>
             <input className="input-field mb-3" placeholder="Crew name" value={name} onChange={e => updateName(e.target.value)} />
             {error && <p className="text-red-500 text-xs mb-3">{error}</p>}
-            <button onClick={join} className="btn-primary disabled:opacity-50" disabled={loading || !canSubmit}>{loading ? 'Joining…' : 'Join existing crew'}</button>
+            <button onClick={join} className="btn-primary disabled:opacity-50" disabled={loading || !canSubmit}>{loading ? 'Sending…' : 'Request to join'}</button>
           </>
         ) : (
           <>
@@ -239,6 +259,7 @@ export default function Crew({ user, userProfile, onFriendRequestsChange }) {
   const [friends, setFriends] = useState([])
   const [listings, setListings] = useState([])
   const [incomingRequests, setIncomingRequests] = useState([])
+  const [crewJoinRequests, setCrewJoinRequests] = useState([])
   const [sentRequestIds, setSentRequestIds] = useState(new Set())
   const [friendIds, setFriendIds] = useState(new Set())
   const [requestedListings, setRequestedListings] = useState(new Set())
@@ -277,6 +298,35 @@ export default function Crew({ user, userProfile, onFriendRequestsChange }) {
     }
 
     setCrews(crewList)
+
+    if (crewList.length) {
+      const { data: joinReqs } = await supabase
+        .from('crew_join_requests')
+        .select('id, crew_id, requester_id, status, created_at')
+        .in('crew_id', crewList.map(c => c.id))
+        .eq('status', 'pending')
+        .neq('requester_id', user.id)
+        .order('created_at', { ascending: true })
+
+      const requesterIds = [...new Set(joinReqs?.map(r => r.requester_id) || [])]
+      let profileMap = {}
+      if (requesterIds.length) {
+        const { data: requestProfiles } = await supabase
+          .from('profiles')
+          .select('id, name, avatar_url, home_course')
+          .in('id', requesterIds)
+        requestProfiles?.forEach(p => { profileMap[p.id] = p })
+      }
+      const crewMap = {}
+      crewList.forEach(c => { crewMap[c.id] = c })
+      setCrewJoinRequests((joinReqs || []).map(r => ({
+        ...r,
+        crew: crewMap[r.crew_id],
+        profile: profileMap[r.requester_id],
+      })))
+    } else {
+      setCrewJoinRequests([])
+    }
 
     const ids = friendRes.data?.map(f => f.friend_id) || []
     setFriendIds(new Set(ids))
@@ -403,6 +453,36 @@ export default function Crew({ user, userProfile, onFriendRequestsChange }) {
     onFriendRequestsChange?.(incomingRequests.length - 1)
   }
 
+  const acceptCrewJoinRequest = async (req) => {
+    const { error } = await supabase
+      .from('crew_join_requests')
+      .update({ status: 'accepted' })
+      .eq('id', req.id)
+    if (error) { showToast(`Could not approve crew request: ${error.message}`); return }
+
+    setCrewJoinRequests(r => r.filter(x => x.id !== req.id))
+    showToast(`${req.profile?.name || 'Player'} joined ${req.crew?.name || 'the crew'}.`, 'success')
+    supabase.functions.invoke('send-push', {
+      body: {
+        user_id: req.requester_id,
+        title: 'Crew request accepted 🤝',
+        body: `You are now in ${req.crew?.name || 'the crew'}.`,
+      },
+    })
+    fetchAll()
+  }
+
+  const declineCrewJoinRequest = async (req) => {
+    const { error } = await supabase
+      .from('crew_join_requests')
+      .update({ status: 'declined' })
+      .eq('id', req.id)
+    if (error) { showToast(`Could not decline crew request: ${error.message}`); return }
+
+    setCrewJoinRequests(r => r.filter(x => x.id !== req.id))
+    showToast('Crew request declined.', 'success')
+  }
+
   const getAddState = (id) => {
     if (friendIds.has(id)) return 'friends'
     if (sentRequestIds.has(id)) return 'sent'
@@ -524,6 +604,43 @@ export default function Crew({ user, userProfile, onFriendRequestsChange }) {
                             Decline
                           </button>
                           <button onClick={() => acceptRequest(req)}
+                            className="h-10 bg-[#1D9E75] text-white rounded-[12px] text-sm font-black active:scale-[0.98] transition-transform">
+                            Accept
+                          </button>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Crew join requests */}
+            {crewJoinRequests.length > 0 && (
+              <div className="mb-5">
+                <div className="flex items-center justify-between mb-2">
+                  <h2 className="section-label">Crew requests</h2>
+                  <span className="text-[10px] font-black text-orange-600 bg-orange-50 px-2 py-1 rounded-full">{crewJoinRequests.length} waiting</span>
+                </div>
+                <div className="space-y-2">
+                  {crewJoinRequests.map(req => {
+                    const p = req.profile
+                    return (
+                      <div key={req.id} className="bg-white rounded-[18px] border border-orange-100 shadow-sm p-3">
+                        <button className="w-full flex items-center gap-3 text-left active:opacity-75" onClick={() => setViewingProfile(req.requester_id)}>
+                          <Avatar name={p?.name} url={p?.avatar_url} size={11} />
+                          <div className="flex-1 min-w-0">
+                            <p className="font-black text-sm text-gray-900">{p?.name || 'Golfer'}</p>
+                            <p className="text-xs text-gray-400 truncate">Wants to join {req.crew?.name || 'your crew'}</p>
+                          </div>
+                          <span className="text-[10px] text-gray-400 font-bold">View →</span>
+                        </button>
+                        <div className="grid grid-cols-2 gap-2 mt-3">
+                          <button onClick={() => declineCrewJoinRequest(req)}
+                            className="h-10 bg-gray-100 text-gray-500 rounded-[12px] text-sm font-black active:scale-[0.98] transition-transform">
+                            Decline
+                          </button>
+                          <button onClick={() => acceptCrewJoinRequest(req)}
                             className="h-10 bg-[#1D9E75] text-white rounded-[12px] text-sm font-black active:scale-[0.98] transition-transform">
                             Accept
                           </button>
