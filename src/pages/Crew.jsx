@@ -193,16 +193,6 @@ function ManageCrewModal({ userId, onClose, onDone }) {
       return
     }
 
-    const { error: memberError } = await supabase
-      .from('crew_members')
-      .insert({ crew_id: crew.id, user_id: userId })
-
-    if (memberError) {
-      setError(`Crew was created, but we could not add you: ${memberError.message}`)
-      setLoading(false)
-      return
-    }
-
     showToast(`Created ${crew.name}. Share the name with friends.`, 'success')
     onDone()
     onClose()
