@@ -266,6 +266,20 @@ function GameCard({ game, currentUserId, userHandicap, onRequest, onCancel, onWi
                 Cancel
               </button>
             </div>
+          ) : status === 'declined' ? (
+            <div className="flex gap-2">
+              <div className="flex-1 py-2.5 rounded-[10px] text-sm font-bold bg-red-50 text-red-500 text-center">
+                Request declined
+              </div>
+              {spotsLeft > 0 && (
+                <button
+                  onClick={() => onRequest(game)}
+                  className="px-4 py-2.5 rounded-[10px] text-sm font-bold bg-[#1D9E75] text-white active:opacity-80"
+                >
+                  Request again
+                </button>
+              )}
+            </div>
           ) : spotsLeft > 0 ? (
             <button
               onClick={() => onRequest(game)}
@@ -623,6 +637,23 @@ export default function Discover({ user, userProfile, onNavigateTab }) {
       .maybeSingle()
 
     if (existing) {
+      if (existing.status === 'declined') {
+        const { error } = await supabase
+          .from('round_requests')
+          .update({ status: 'pending' })
+          .eq('id', existing.id)
+
+        if (error) {
+          setRequestStatus(s => ({ ...s, [game.id]: 'declined' }))
+          showToast(`Could not request again: ${error.message}`)
+          return
+        }
+
+        setRequestStatus(s => ({ ...s, [game.id]: 'pending' }))
+        notifyHost(game)
+        showToast('Request sent again.', 'success')
+        return
+      }
       setRequestStatus(s => ({ ...s, [game.id]: existing.status }))
       return
     }
@@ -643,16 +674,7 @@ export default function Discover({ user, userProfile, onNavigateTab }) {
     })
     if (!error) {
       setRequestStatus(s => ({ ...s, [game.id]: 'pending' }))
-      // Notify host
-      const requesterName = userProfile?.name?.split(' ')[0] || 'Someone'
-      const date = new Date(game.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
-      supabase.functions.invoke('send-push', {
-        body: {
-          user_id: game.host_id,
-          title: `${requesterName} wants to join your game ⛳`,
-          body: `${game.course_name} · ${date}${game.tee_time ? ` · ${game.tee_time.slice(0, 5)}` : ''}`,
-        },
-      })
+      notifyHost(game)
     } else if (error.code === '23505') {
       const { data: duplicate } = await supabase
         .from('round_requests')
@@ -670,6 +692,18 @@ export default function Discover({ user, userProfile, onNavigateTab }) {
       })
       showToast(`Request failed: ${error.message}`)
     }
+  }
+
+  const notifyHost = (game) => {
+    const requesterName = userProfile?.name?.split(' ')[0] || 'Someone'
+    const date = new Date(game.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+    supabase.functions.invoke('send-push', {
+      body: {
+        user_id: game.host_id,
+        title: `${requesterName} wants to join your game ⛳`,
+        body: `${game.course_name} · ${date}${game.tee_time ? ` · ${game.tee_time.slice(0, 5)}` : ''}`,
+      },
+    })
   }
 
   const handleCancelRequest = async (game) => {
