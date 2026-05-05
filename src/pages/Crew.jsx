@@ -4,6 +4,7 @@ import Avatar from '../components/Avatar'
 import Modal from '../components/Modal'
 import RoundCard from '../components/RoundCard'
 import PublicProfileModal from '../components/PublicProfileModal'
+import ConfirmSheet from '../components/ConfirmSheet'
 import Leaderboard from './Leaderboard'
 import { showToast } from '../components/Toast'
 
@@ -258,6 +259,7 @@ export default function Crew({ user, userProfile, onFriendRequestsChange }) {
   const [activeChat, setActiveChat] = useState(null)
   const [showCrewModal, setShowCrewModal] = useState(false)
   const [showLeaderboard, setShowLeaderboard] = useState(false)
+  const [confirmDeleteCrew, setConfirmDeleteCrew] = useState(null)
   const [search, setSearch] = useState('')
   const [searchResults, setSearchResults] = useState([])
 
@@ -473,6 +475,28 @@ export default function Crew({ user, userProfile, onFriendRequestsChange }) {
     showToast('Crew request declined.', 'success')
   }
 
+  const deleteCrew = async () => {
+    if (!confirmDeleteCrew) return
+
+    const crewId = confirmDeleteCrew.id
+    const { error } = await supabase
+      .from('crews')
+      .delete()
+      .eq('id', crewId)
+      .eq('created_by', user.id)
+
+    if (error) {
+      showToast(`Could not delete crew: ${error.message}`)
+      return
+    }
+
+    setCrews(list => list.filter(c => c.id !== crewId))
+    setCrewJoinRequests(reqs => reqs.filter(r => r.crew_id !== crewId))
+    if (activeChat?.id === crewId) setActiveChat(null)
+    setConfirmDeleteCrew(null)
+    showToast('Crew deleted.', 'success')
+  }
+
   const getAddState = (id) => {
     if (friendIds.has(id)) return 'friends'
     if (sentRequestIds.has(id)) return 'sent'
@@ -662,6 +686,14 @@ export default function Crew({ user, userProfile, onFriendRequestsChange }) {
                           Chat
                         </button>
                       </div>
+                      {crew.created_by === user.id && (
+                        <button
+                          onClick={() => setConfirmDeleteCrew(crew)}
+                          className="w-full text-xs text-red-500 font-black bg-red-50 rounded-[10px] py-2 mb-2 active:opacity-70"
+                        >
+                          Delete crew
+                        </button>
+                      )}
                       <button
                         onClick={() => {
                           const text = `Join my crew "${crew.name}" on SwingSwipe ⛳\n\nOpen SwingSwipe → Crew tab → tap "+ Crew" → Join crew → type: ${crew.name}`
@@ -735,6 +767,16 @@ export default function Crew({ user, userProfile, onFriendRequestsChange }) {
 
       {activeChat && <CrewChat crew={activeChat} currentUserId={user.id} onClose={() => setActiveChat(null)} />}
       {showCrewModal && <ManageCrewModal userId={user.id} onClose={() => setShowCrewModal(false)} onDone={fetchAll} />}
+      {confirmDeleteCrew && (
+        <ConfirmSheet
+          title="Delete this crew?"
+          message={`This removes ${confirmDeleteCrew.name}, its chat, requests and membership for everyone.`}
+          confirmLabel="Delete crew"
+          danger
+          onConfirm={deleteCrew}
+          onCancel={() => setConfirmDeleteCrew(null)}
+        />
+      )}
       {viewingProfile && <PublicProfileModal userId={viewingProfile} currentUserId={user.id} onClose={() => setViewingProfile(null)} />}
       {showLeaderboard && (
         <div className="fixed inset-0 z-50 bg-[#f0f2f0] flex flex-col">
