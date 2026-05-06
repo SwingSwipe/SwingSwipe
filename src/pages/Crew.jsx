@@ -7,6 +7,7 @@ import PublicProfileModal from '../components/PublicProfileModal'
 import ConfirmSheet from '../components/ConfirmSheet'
 import Leaderboard from './Leaderboard'
 import { showToast } from '../components/Toast'
+import { CHALLENGE_TYPE_OPTIONS, getChallengeTitle, getChallengeTypeLabel } from '../utils/crewChallenges'
 
 const CREW_THEMES = {
   classic: {
@@ -100,7 +101,23 @@ function PinnedGameCard({ game, compact = false }) {
   )
 }
 
-function CrewChat({ crew, currentUserId, onClose, onPinGame, onUnpinGame }) {
+function ChallengeCard({ challenge, compact = false }) {
+  if (!challenge) return null
+  return (
+    <div className={`rounded-[16px] bg-white/90 border border-white shadow-sm ${compact ? 'p-3' : 'p-4'}`}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-[10px] uppercase font-black text-[#1D9E75] tracking-wide mb-0.5">Weekly challenge</p>
+          <p className="font-black text-sm text-gray-900 truncate">{getChallengeTitle(challenge)}</p>
+          <p className="text-xs text-gray-500">{getChallengeTypeLabel(challenge.challenge_type)}</p>
+        </div>
+        <span className="shrink-0 text-[11px] font-black text-[#064e35] bg-[#e8f5ef] rounded-full px-2.5 py-1">Active</span>
+      </div>
+    </div>
+  )
+}
+
+function CrewChat({ crew, currentUserId, onClose, onPinGame, onUnpinGame, onSetChallenge }) {
   const [messages, setMessages] = useState([])
   const [profiles, setProfiles] = useState({})
   const [text, setText] = useState('')
@@ -166,15 +183,18 @@ function CrewChat({ crew, currentUserId, onClose, onPinGame, onUnpinGame }) {
         <div className="pointer-events-none absolute -right-12 top-20 w-36 h-36 rounded-full bg-white/35" />
         <div className="pointer-events-none absolute -left-10 bottom-24 w-28 h-28 rounded-full bg-white/25" />
         <div className="relative z-10 space-y-2">
+          {crew.activeChallenge ? <ChallengeCard challenge={crew.activeChallenge} /> : null}
           {crew.pinnedGame ? <PinnedGameCard game={crew.pinnedGame} /> : null}
           <div className="grid grid-cols-2 gap-2">
+            <button onClick={() => onSetChallenge(crew)} className="h-9 rounded-[10px] bg-white/75 text-xs font-black text-gray-700 shadow-sm active:opacity-75">{crew.activeChallenge ? 'Change challenge' : 'Set challenge'}</button>
             <button onClick={() => onPinGame(crew)} className="h-9 rounded-[10px] bg-white/75 text-xs font-black text-gray-700 shadow-sm active:opacity-75">{crew.pinnedGame ? 'Change pinned game' : 'Pin a game'}</button>
-            {crew.pinnedGame ? (
-              <button onClick={() => onUnpinGame(crew)} className="h-9 rounded-[10px] bg-white/60 text-xs font-black text-red-500 shadow-sm active:opacity-75">Unpin</button>
-            ) : (
-              <button onClick={onClose} className="h-9 rounded-[10px] bg-white/60 text-xs font-black text-gray-500 shadow-sm active:opacity-75">Back</button>
-            )}
           </div>
+          {crew.pinnedGame ? (
+            <div className="grid grid-cols-2 gap-2">
+              <button onClick={onClose} className="h-9 rounded-[10px] bg-white/60 text-xs font-black text-gray-500 shadow-sm active:opacity-75">Back</button>
+              <button onClick={() => onUnpinGame(crew)} className="h-9 rounded-[10px] bg-white/60 text-xs font-black text-red-500 shadow-sm active:opacity-75">Unpin game</button>
+            </div>
+          ) : null}
         </div>
         {messages.map(msg => {
           if (isSystemMessage(msg)) {
@@ -531,7 +551,131 @@ function PinGameModal({ crew, members, onClose, onPinned }) {
   )
 }
 
-function CrewManageModal({ crew, isCreator, onClose, onInvite, onMembers, onPin, onCustomize, onLeave, onDelete }) {
+function ChallengeModal({ crew, userId, onClose, onSaved, onCleared }) {
+  const [type, setType] = useState(crew.activeChallenge?.challenge_type || CHALLENGE_TYPE_OPTIONS[0].value)
+  const [title, setTitle] = useState(crew.activeChallenge?.title || '')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const theme = getCrewTheme(crew.theme)
+  const cleanTitle = title.trim().slice(0, 80)
+  const selectedLabel = getChallengeTypeLabel(type)
+
+  const selectType = (value, label) => {
+    const currentTitle = title.trim()
+    const isPresetTitle = CHALLENGE_TYPE_OPTIONS.some(option => option.label === currentTitle)
+    setType(value)
+    if (!currentTitle || isPresetTitle) setTitle(label)
+  }
+
+  const save = async () => {
+    setLoading(true)
+    setError('')
+
+    const { error: closeError } = await supabase
+      .from('crew_challenges')
+      .update({ status: 'closed' })
+      .eq('crew_id', crew.id)
+      .eq('status', 'active')
+
+    if (closeError) {
+      setError(`Could not update challenge: ${closeError.message}`)
+      setLoading(false)
+      return
+    }
+
+    const { data, error: insertError } = await supabase
+      .from('crew_challenges')
+      .insert({
+        crew_id: crew.id,
+        created_by: userId,
+        title: cleanTitle || selectedLabel,
+        challenge_type: type,
+        status: 'active',
+      })
+      .select('id, crew_id, created_by, title, challenge_type, status, created_at')
+      .single()
+
+    if (insertError) {
+      setError(`Could not save challenge: ${insertError.message}`)
+      setLoading(false)
+      return
+    }
+
+    showToast('Weekly challenge set.', 'success')
+    await logCrewActivity(crew.id, userId, `Weekly challenge set: ${getChallengeTitle(data)}`)
+    onSaved(data)
+    onClose()
+    setLoading(false)
+  }
+
+  const clear = async () => {
+    if (!crew.activeChallenge) return
+    setLoading(true)
+    setError('')
+    const { error: closeError } = await supabase
+      .from('crew_challenges')
+      .update({ status: 'closed' })
+      .eq('crew_id', crew.id)
+      .eq('status', 'active')
+
+    if (closeError) {
+      setError(`Could not clear challenge: ${closeError.message}`)
+      setLoading(false)
+      return
+    }
+
+    showToast('Weekly challenge cleared.', 'success')
+    await logCrewActivity(crew.id, userId, 'Weekly challenge was cleared')
+    onCleared()
+    onClose()
+    setLoading(false)
+  }
+
+  return (
+    <Modal>
+      <>
+        <div className="fixed inset-0 bg-black/50 z-[60]" onClick={onClose} />
+        <div className="fixed bottom-0 left-0 right-0 z-[60] bg-white rounded-t-[20px] p-6 max-h-[88vh] overflow-y-auto">
+          <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-4" />
+          <div className={`rounded-[16px] bg-gradient-to-r ${theme.card} p-4 text-white mb-4`}>
+            <p className="text-[10px] uppercase font-black text-white/60 tracking-wide">Weekly challenge</p>
+            <h3 className="font-black text-lg">{crew.name}</h3>
+            <p className="text-xs text-white/70">Pick one prompt for the crew to chase this week.</p>
+          </div>
+
+          <div className="space-y-2 mb-4">
+            {CHALLENGE_TYPE_OPTIONS.map(option => (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => selectType(option.value, option.label)}
+                className={`w-full rounded-[12px] p-3 text-left border active:opacity-75 ${type === option.value ? 'border-[#1D9E75] bg-[#e8f5ef]' : 'border-gray-100 bg-gray-50'}`}
+              >
+                <p className="text-sm font-black text-gray-900">{option.label}</p>
+              </button>
+            ))}
+          </div>
+
+          <input
+            className="input-field mb-3"
+            placeholder={selectedLabel}
+            value={title}
+            maxLength={80}
+            onChange={e => setTitle(e.target.value)}
+          />
+          {error && <p className="text-red-500 text-xs mb-3">{error}</p>}
+          <button onClick={save} className="btn-primary disabled:opacity-50 mb-2" disabled={loading}>{loading ? 'Saving...' : 'Set weekly challenge'}</button>
+          {crew.activeChallenge && (
+            <button onClick={clear} className="w-full h-10 rounded-[12px] bg-red-50 text-red-500 text-sm font-black mb-2 disabled:opacity-50" disabled={loading}>Clear challenge</button>
+          )}
+          <button onClick={onClose} className="w-full py-2 text-sm text-gray-400">Cancel</button>
+        </div>
+      </>
+    </Modal>
+  )
+}
+
+function CrewManageModal({ crew, isCreator, onClose, onInvite, onMembers, onPin, onChallenge, onCustomize, onLeave, onDelete }) {
   const theme = getCrewTheme(crew.theme)
   const actionClass = 'w-full h-11 rounded-[12px] bg-gray-50 text-gray-800 text-sm font-black flex items-center justify-between px-3 active:opacity-75'
 
@@ -555,6 +699,7 @@ function CrewManageModal({ crew, isCreator, onClose, onInvite, onMembers, onPin,
             <button onClick={onInvite} className={actionClass}><span>Invite friends</span><span>🔗</span></button>
             <button onClick={onMembers} className={actionClass}><span>View members</span><span>→</span></button>
             <button onClick={onPin} className={actionClass}><span>{crew.pinnedGame ? 'Change pinned game' : 'Pin crew game'}</span><span>📌</span></button>
+            <button onClick={onChallenge} className={actionClass}><span>{crew.activeChallenge ? 'Change weekly challenge' : 'Set weekly challenge'}</span><span>🏆</span></button>
             {isCreator && <button onClick={onCustomize} className={actionClass}><span>Customize crew</span><span>🎨</span></button>}
             {!isCreator && <button onClick={onLeave} className="w-full h-11 rounded-[12px] bg-red-50 text-red-500 text-sm font-black flex items-center justify-between px-3 active:opacity-75"><span>Leave crew</span><span>↗</span></button>}
             {isCreator && <button onClick={onDelete} className="w-full h-11 rounded-[12px] bg-red-50 text-red-500 text-sm font-black flex items-center justify-between px-3 active:opacity-75"><span>Delete crew</span><span>✕</span></button>}
@@ -632,6 +777,7 @@ export default function Crew({ user, userProfile, onFriendRequestsChange }) {
   const [editingCrew, setEditingCrew] = useState(null)
   const [viewingCrewMembers, setViewingCrewMembers] = useState(null)
   const [pinningCrew, setPinningCrew] = useState(null)
+  const [challengingCrew, setChallengingCrew] = useState(null)
   const [managingCrew, setManagingCrew] = useState(null)
   const [search, setSearch] = useState('')
   const [searchResults, setSearchResults] = useState([])
@@ -688,6 +834,20 @@ export default function Crew({ user, userProfile, onFriendRequestsChange }) {
       const pinnedMap = {}
       pinnedGames?.forEach(game => { pinnedMap[game.id] = game })
       crewList = crewList.map(c => ({ ...c, pinnedGame: pinnedMap[c.pinned_listing_id] || null }))
+    }
+
+    if (crewList.length) {
+      const { data: challenges } = await supabase
+        .from('crew_challenges')
+        .select('id, crew_id, created_by, title, challenge_type, status, created_at')
+        .in('crew_id', crewList.map(c => c.id))
+        .eq('status', 'active')
+        .order('created_at', { ascending: false })
+      const challengeMap = {}
+      challenges?.forEach(challenge => {
+        if (!challengeMap[challenge.crew_id]) challengeMap[challenge.crew_id] = challenge
+      })
+      crewList = crewList.map(c => ({ ...c, activeChallenge: challengeMap[c.id] || null }))
     }
 
     setCrews(crewList)
@@ -943,6 +1103,12 @@ export default function Crew({ user, userProfile, onFriendRequestsChange }) {
     if (pinningCrew?.id === crewId) setPinningCrew(null)
   }
 
+  const handleChallengeChanged = (crewId, activeChallenge) => {
+    setCrews(list => list.map(c => c.id === crewId ? { ...c, activeChallenge } : c))
+    if (activeChat?.id === crewId) setActiveChat({ ...activeChat, activeChallenge })
+    if (challengingCrew?.id === crewId) setChallengingCrew(null)
+  }
+
   const pinCrewGame = async (crew, game) => {
     const { data, error } = await supabase.from('crews').update({ pinned_listing_id: game.id }).eq('id', crew.id).select('id, pinned_listing_id').single()
     if (error) { showToast(`Could not pin game: ${error.message}`); return }
@@ -973,6 +1139,11 @@ export default function Crew({ user, userProfile, onFriendRequestsChange }) {
   const openPinCrewGame = (crew) => {
     setManagingCrew(null)
     setPinningCrew(crew)
+  }
+
+  const openChallenge = (crew) => {
+    setManagingCrew(null)
+    setChallengingCrew(crew)
   }
 
   const openCustomizeCrew = (crew) => {
@@ -1200,6 +1371,7 @@ export default function Crew({ user, userProfile, onFriendRequestsChange }) {
                         </div>
                         <span className="text-xs font-black text-white">Members →</span>
                       </button>
+                      {crew.activeChallenge && (<div className="mb-2"><ChallengeCard challenge={crew.activeChallenge} compact /></div>)}
                       {crew.pinnedGame && (<div className="mb-2"><PinnedGameCard game={crew.pinnedGame} compact /></div>)}
                       <div className="grid grid-cols-2 gap-2">
                         <button onClick={() => setActiveChat(crew)} className="w-full text-xs text-gray-900 font-black bg-white rounded-[10px] py-2.5 active:opacity-70">Chat</button>
@@ -1267,7 +1439,7 @@ export default function Crew({ user, userProfile, onFriendRequestsChange }) {
         )}
       </div>
 
-      {activeChat && (<CrewChat crew={activeChat} currentUserId={user.id} onClose={() => setActiveChat(null)} onPinGame={crew => setPinningCrew(crew)} onUnpinGame={unpinCrewGame} />)}
+      {activeChat && (<CrewChat crew={activeChat} currentUserId={user.id} onClose={() => setActiveChat(null)} onPinGame={crew => setPinningCrew(crew)} onUnpinGame={unpinCrewGame} onSetChallenge={openChallenge} />)}
       {showCrewModal && <ManageCrewModal userId={user.id} onClose={() => setShowCrewModal(false)} onDone={fetchAll} />}
       {editingCrew && (
         <EditCrewModal
@@ -1284,12 +1456,22 @@ export default function Crew({ user, userProfile, onFriendRequestsChange }) {
           onInvite={() => shareCrew(managingCrew)}
           onMembers={() => openCrewMembers(managingCrew)}
           onPin={() => openPinCrewGame(managingCrew)}
+          onChallenge={() => openChallenge(managingCrew)}
           onCustomize={() => openCustomizeCrew(managingCrew)}
           onLeave={() => openLeaveCrew(managingCrew)}
           onDelete={() => openDeleteCrew(managingCrew)}
         />
       )}
       {pinningCrew && (<PinGameModal crew={pinningCrew} members={crewMembers[pinningCrew.id] || []} onClose={() => setPinningCrew(null)} onPinned={game => pinCrewGame(pinningCrew, game)} />)}
+      {challengingCrew && (
+        <ChallengeModal
+          crew={challengingCrew}
+          userId={user.id}
+          onClose={() => setChallengingCrew(null)}
+          onSaved={challenge => handleChallengeChanged(challengingCrew.id, challenge)}
+          onCleared={() => handleChallengeChanged(challengingCrew.id, null)}
+        />
+      )}
       {viewingCrewMembers && (
         <CrewMembersModal
           crew={viewingCrewMembers}

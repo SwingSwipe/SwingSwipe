@@ -149,3 +149,65 @@ create policy "Deals are public" on deals for select using (true);
 -- Enable realtime for chat
 alter publication supabase_realtime add table round_messages;
 alter publication supabase_realtime add table round_listings;
+
+-- Crew Weekly Challenges
+create table if not exists public.crew_challenges (
+  id uuid primary key default gen_random_uuid(),
+  crew_id uuid not null references public.crews(id) on delete cascade,
+  created_by uuid not null references public.profiles(id),
+  title text not null,
+  challenge_type text not null default 'lowest_9',
+  status text not null default 'active' check (status in ('active', 'closed')),
+  created_at timestamp default now()
+);
+
+create unique index if not exists crew_challenges_one_active_per_crew
+on public.crew_challenges (crew_id)
+where status = 'active';
+
+alter table public.crew_challenges enable row level security;
+
+drop policy if exists "Crew members can view challenges" on public.crew_challenges;
+create policy "Crew members can view challenges"
+on public.crew_challenges for select
+using (
+  exists (
+    select 1
+    from public.crew_members
+    where crew_members.crew_id = crew_challenges.crew_id
+      and crew_members.user_id = auth.uid()
+  )
+);
+
+drop policy if exists "Crew members can create challenges" on public.crew_challenges;
+create policy "Crew members can create challenges"
+on public.crew_challenges for insert
+with check (
+  auth.uid() = created_by
+  and exists (
+    select 1
+    from public.crew_members
+    where crew_members.crew_id = crew_challenges.crew_id
+      and crew_members.user_id = auth.uid()
+  )
+);
+
+drop policy if exists "Crew members can update challenges" on public.crew_challenges;
+create policy "Crew members can update challenges"
+on public.crew_challenges for update
+using (
+  exists (
+    select 1
+    from public.crew_members
+    where crew_members.crew_id = crew_challenges.crew_id
+      and crew_members.user_id = auth.uid()
+  )
+)
+with check (
+  exists (
+    select 1
+    from public.crew_members
+    where crew_members.crew_id = crew_challenges.crew_id
+      and crew_members.user_id = auth.uid()
+  )
+);
