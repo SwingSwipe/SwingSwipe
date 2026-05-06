@@ -75,7 +75,32 @@ const logCrewActivity = (crewId, userId, content) => {
     })
 }
 
-function CrewChat({ crew, currentUserId, onClose }) {
+const formatPinnedGameDate = (game) => {
+  if (!game?.date) return 'Date TBD'
+  const date = new Date(`${game.date}T00:00:00`).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+  return game.tee_time ? `${date} · ${game.tee_time}` : date
+}
+
+function PinnedGameCard({ game, compact = false }) {
+  if (!game) return null
+  const spotsTotal = game.spots_total || game.spots || 0
+  const spotsLeft = Math.max(spotsTotal - (game.spots_filled || 0), 0)
+  return (
+    <div className={`rounded-[16px] bg-white/90 border border-white shadow-sm ${compact ? 'p-3' : 'p-4'}`}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-[10px] uppercase font-black text-[#1D9E75] tracking-wide mb-0.5">Pinned game</p>
+          <p className="font-black text-sm text-gray-900 truncate">{game.course_name || 'Golf round'}</p>
+          <p className="text-xs text-gray-500">{formatPinnedGameDate(game)}</p>
+        </div>
+        <span className="shrink-0 text-[11px] font-black text-[#064e35] bg-[#e8f5ef] rounded-full px-2.5 py-1">{spotsLeft} left</span>
+      </div>
+      {game.profiles?.name && <p className="text-xs text-gray-400 mt-2">Hosted by {game.profiles.name}</p>}
+    </div>
+  )
+}
+
+function CrewChat({ crew, currentUserId, onClose, onPinGame, onUnpinGame }) {
   const [messages, setMessages] = useState([])
   const [profiles, setProfiles] = useState({})
   const [text, setText] = useState('')
@@ -140,6 +165,17 @@ function CrewChat({ crew, currentUserId, onClose }) {
       <div className="flex-1 overflow-y-auto p-4 space-y-3 relative">
         <div className="pointer-events-none absolute -right-12 top-20 w-36 h-36 rounded-full bg-white/35" />
         <div className="pointer-events-none absolute -left-10 bottom-24 w-28 h-28 rounded-full bg-white/25" />
+        <div className="relative z-10 space-y-2">
+          {crew.pinnedGame ? <PinnedGameCard game={crew.pinnedGame} /> : null}
+          <div className="grid grid-cols-2 gap-2">
+            <button onClick={() => onPinGame(crew)} className="h-9 rounded-[10px] bg-white/75 text-xs font-black text-gray-700 shadow-sm active:opacity-75">{crew.pinnedGame ? 'Change pinned game' : 'Pin a game'}</button>
+            {crew.pinnedGame ? (
+              <button onClick={() => onUnpinGame(crew)} className="h-9 rounded-[10px] bg-white/60 text-xs font-black text-red-500 shadow-sm active:opacity-75">Unpin</button>
+            ) : (
+              <button onClick={onClose} className="h-9 rounded-[10px] bg-white/60 text-xs font-black text-gray-500 shadow-sm active:opacity-75">Back</button>
+            )}
+          </div>
+        </div>
         {messages.map(msg => {
           if (isSystemMessage(msg)) {
             return (
@@ -449,6 +485,52 @@ function EditCrewModal({ crew, onClose, onDone }) {
   )
 }
 
+function PinGameModal({ crew, members, onClose, onPinned }) {
+  const [games, setGames] = useState([])
+  const [loading, setLoading] = useState(true)
+  const theme = getCrewTheme(crew.theme)
+  useEffect(() => {
+    const fetchGames = async () => {
+      const memberIds = members.map(m => m.user_id)
+      if (!memberIds.length) { setGames([]); setLoading(false); return }
+      const { data, error } = await supabase
+        .from('round_listings')
+        .select('id, course_name, date, tee_time, spots_total, spots_filled, host_id, profiles(name, avatar_url)')
+        .in('host_id', memberIds)
+        .eq('is_active', true)
+        .gte('date', new Date().toISOString().split('T')[0])
+        .order('date', { ascending: true })
+      if (error) showToast(`Could not load crew games: ${error.message}`)
+      setGames(data || [])
+      setLoading(false)
+    }
+    fetchGames()
+  }, [crew.id])
+  return (
+    <Modal>
+      <>
+        <div className="fixed inset-0 bg-black/50 z-[60]" onClick={onClose} />
+        <div className="fixed bottom-0 left-0 right-0 z-[60] bg-white rounded-t-[20px] p-6 max-h-[82vh] overflow-y-auto">
+          <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-4" />
+          <div className={`rounded-[16px] bg-gradient-to-r ${theme.card} p-4 text-white mb-4`}>
+            <p className="text-[10px] uppercase font-black text-white/60 tracking-wide">Pin a game</p>
+            <h3 className="font-black text-lg">{crew.name}</h3>
+            <p className="text-xs text-white/70">Choose one upcoming crew game to keep at the top.</p>
+          </div>
+          {loading ? (
+            <div className="h-28 flex items-center justify-center"><div className="w-6 h-6 border-2 border-[#1D9E75] border-t-transparent rounded-full animate-spin" /></div>
+          ) : games.length ? (
+            <div className="space-y-2">{games.map(game => (<button key={game.id} onClick={() => onPinned(game)} className="w-full text-left active:opacity-75"><PinnedGameCard game={game} compact /></button>))}</div>
+          ) : (
+            <div className="text-center py-8"><p className="text-3xl mb-2">⛳</p><p className="font-black text-gray-800 text-sm">No crew games yet</p><p className="text-xs text-gray-500 mt-1">Post a game, then come back and pin it here.</p></div>
+          )}
+          <button onClick={onClose} className="w-full py-3 text-sm text-gray-400 mt-3">Cancel</button>
+        </div>
+      </>
+    </Modal>
+  )
+}
+
 function CrewMembersModal({ crew, members, currentUserId, onClose, onProfileTap }) {
   return (
     <Modal>
@@ -514,6 +596,7 @@ export default function Crew({ user, userProfile, onFriendRequestsChange }) {
   const [confirmLeaveCrew, setConfirmLeaveCrew] = useState(null)
   const [editingCrew, setEditingCrew] = useState(null)
   const [viewingCrewMembers, setViewingCrewMembers] = useState(null)
+  const [pinningCrew, setPinningCrew] = useState(null)
   const [search, setSearch] = useState('')
   const [searchResults, setSearchResults] = useState([])
 
@@ -521,8 +604,8 @@ export default function Crew({ user, userProfile, onFriendRequestsChange }) {
 
   const fetchAll = async () => {
     setLoading(true)
-    const [crewRes, friendRes, incomingRes, sentRes] = await Promise.all([
-      supabase.from('crew_members').select('crew_id, crews(id, name, created_by, theme, icon, tagline)').eq('user_id', user.id),
+    const [crewMemberRes, friendRes, incomingRes, sentRes] = await Promise.all([
+      supabase.from('crew_members').select('crew_id').eq('user_id', user.id),
       supabase.from('friends').select('friend_id').eq('user_id', user.id),
       supabase.from('friend_requests')
         .select('id, from_id, created_at, profiles!friend_requests_from_id_fkey(id, name, avatar_url, home_course)')
@@ -530,7 +613,12 @@ export default function Crew({ user, userProfile, onFriendRequestsChange }) {
       supabase.from('friend_requests').select('to_id').eq('from_id', user.id).eq('status', 'pending'),
     ])
 
-    const crewList = crewRes.data?.map(r => r.crews).filter(Boolean) || []
+    const myCrewIds = crewMemberRes.data?.map(r => r.crew_id) || []
+    let crewList = []
+    if (myCrewIds.length) {
+      const { data: crewRows } = await supabase.from('crews').select('*').in('id', myCrewIds)
+      crewList = crewRows || []
+    }
 
     // Fetch member profiles for each crew
     if (crewList.length) {
@@ -556,6 +644,14 @@ export default function Crew({ user, userProfile, onFriendRequestsChange }) {
       setCrewMembers(membersByCrew)
     } else {
       setCrewMembers({})
+    }
+
+    const pinnedIds = [...new Set(crewList.map(c => c.pinned_listing_id).filter(Boolean))]
+    if (pinnedIds.length) {
+      const { data: pinnedGames } = await supabase.from('round_listings').select('id, course_name, date, tee_time, spots_total, spots_filled, host_id, profiles(name, avatar_url)').in('id', pinnedIds)
+      const pinnedMap = {}
+      pinnedGames?.forEach(game => { pinnedMap[game.id] = game })
+      crewList = crewList.map(c => ({ ...c, pinnedGame: pinnedMap[c.pinned_listing_id] || null }))
     }
 
     setCrews(crewList)
@@ -805,6 +901,28 @@ export default function Crew({ user, userProfile, onFriendRequestsChange }) {
     if (viewingCrewMembers?.id === updatedCrew.id) setViewingCrewMembers({ ...viewingCrewMembers, ...updatedCrew })
   }
 
+  const handlePinnedGameChanged = (crewId, pinnedGame) => {
+    setCrews(list => list.map(c => c.id === crewId ? { ...c, pinned_listing_id: pinnedGame?.id || null, pinnedGame } : c))
+    if (activeChat?.id === crewId) setActiveChat({ ...activeChat, pinned_listing_id: pinnedGame?.id || null, pinnedGame })
+    if (pinningCrew?.id === crewId) setPinningCrew(null)
+  }
+
+  const pinCrewGame = async (crew, game) => {
+    const { data, error } = await supabase.from('crews').update({ pinned_listing_id: game.id }).eq('id', crew.id).select('id, pinned_listing_id').single()
+    if (error) { showToast(`Could not pin game: ${error.message}`); return }
+    await logCrewActivity(crew.id, user.id, `${game.course_name || 'A game'} was pinned`)
+    handlePinnedGameChanged(crew.id, { ...game, id: data.pinned_listing_id })
+    showToast('Game pinned.', 'success')
+  }
+
+  const unpinCrewGame = async (crew) => {
+    const { error } = await supabase.from('crews').update({ pinned_listing_id: null }).eq('id', crew.id)
+    if (error) { showToast(`Could not unpin game: ${error.message}`); return }
+    await logCrewActivity(crew.id, user.id, 'Pinned game was removed')
+    handlePinnedGameChanged(crew.id, null)
+    showToast('Pinned game removed.', 'success')
+  }
+
   const getAddState = (id) => {
     if (friendIds.has(id)) return 'friends'
     if (sentRequestIds.has(id)) return 'sent'
@@ -1015,6 +1133,8 @@ export default function Crew({ user, userProfile, onFriendRequestsChange }) {
                         </div>
                         <span className="text-xs font-black text-white">View members →</span>
                       </button>
+                      {crew.pinnedGame && (<div className="mb-2"><PinnedGameCard game={crew.pinnedGame} compact /></div>)}
+                      <button onClick={() => setPinningCrew(crew)} className="w-full text-xs text-white font-black bg-white/18 rounded-[10px] py-2 mb-2 active:opacity-70">{crew.pinnedGame ? 'Change pinned game' : 'Pin crew game'}</button>
                       {crew.created_by === user.id && (
                         <div className="grid grid-cols-2 gap-2 mb-2">
                           <button
@@ -1111,7 +1231,7 @@ export default function Crew({ user, userProfile, onFriendRequestsChange }) {
         )}
       </div>
 
-      {activeChat && <CrewChat crew={activeChat} currentUserId={user.id} onClose={() => setActiveChat(null)} />}
+      {activeChat && (<CrewChat crew={activeChat} currentUserId={user.id} onClose={() => setActiveChat(null)} onPinGame={crew => setPinningCrew(crew)} onUnpinGame={unpinCrewGame} />)}
       {showCrewModal && <ManageCrewModal userId={user.id} onClose={() => setShowCrewModal(false)} onDone={fetchAll} />}
       {editingCrew && (
         <EditCrewModal
@@ -1120,6 +1240,7 @@ export default function Crew({ user, userProfile, onFriendRequestsChange }) {
           onDone={handleCrewUpdated}
         />
       )}
+      {pinningCrew && (<PinGameModal crew={pinningCrew} members={crewMembers[pinningCrew.id] || []} onClose={() => setPinningCrew(null)} onPinned={game => pinCrewGame(pinningCrew, game)} />)}
       {viewingCrewMembers && (
         <CrewMembersModal
           crew={viewingCrewMembers}
