@@ -531,6 +531,41 @@ function PinGameModal({ crew, members, onClose, onPinned }) {
   )
 }
 
+function CrewManageModal({ crew, isCreator, onClose, onInvite, onMembers, onPin, onCustomize, onLeave, onDelete }) {
+  const theme = getCrewTheme(crew.theme)
+  const actionClass = 'w-full h-11 rounded-[12px] bg-gray-50 text-gray-800 text-sm font-black flex items-center justify-between px-3 active:opacity-75'
+
+  return (
+    <Modal>
+      <>
+        <div className="fixed inset-0 bg-black/50 z-[60]" onClick={onClose} />
+        <div className="fixed bottom-0 left-0 right-0 z-[60] bg-white rounded-t-[20px] p-6">
+          <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-4" />
+          <div className={'rounded-[16px] bg-gradient-to-r ' + theme.card + ' p-4 text-white mb-4'}>
+            <div className="flex items-center gap-3">
+              <div className="w-11 h-11 rounded-[14px] bg-white/20 flex items-center justify-center text-2xl">{crew.icon || '🤝'}</div>
+              <div className="min-w-0">
+                <p className="font-black text-base truncate">{crew.name}</p>
+                <p className="text-xs text-white/70 truncate">{crew.tagline || 'Crew settings'}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <button onClick={onInvite} className={actionClass}><span>Invite friends</span><span>🔗</span></button>
+            <button onClick={onMembers} className={actionClass}><span>View members</span><span>→</span></button>
+            <button onClick={onPin} className={actionClass}><span>{crew.pinnedGame ? 'Change pinned game' : 'Pin crew game'}</span><span>📌</span></button>
+            {isCreator && <button onClick={onCustomize} className={actionClass}><span>Customize crew</span><span>🎨</span></button>}
+            {!isCreator && <button onClick={onLeave} className="w-full h-11 rounded-[12px] bg-red-50 text-red-500 text-sm font-black flex items-center justify-between px-3 active:opacity-75"><span>Leave crew</span><span>↗</span></button>}
+            {isCreator && <button onClick={onDelete} className="w-full h-11 rounded-[12px] bg-red-50 text-red-500 text-sm font-black flex items-center justify-between px-3 active:opacity-75"><span>Delete crew</span><span>✕</span></button>}
+          </div>
+          <button onClick={onClose} className="w-full py-3 text-sm text-gray-400 mt-3">Cancel</button>
+        </div>
+      </>
+    </Modal>
+  )
+}
+
 function CrewMembersModal({ crew, members, currentUserId, onClose, onProfileTap }) {
   return (
     <Modal>
@@ -597,6 +632,7 @@ export default function Crew({ user, userProfile, onFriendRequestsChange }) {
   const [editingCrew, setEditingCrew] = useState(null)
   const [viewingCrewMembers, setViewingCrewMembers] = useState(null)
   const [pinningCrew, setPinningCrew] = useState(null)
+  const [managingCrew, setManagingCrew] = useState(null)
   const [search, setSearch] = useState('')
   const [searchResults, setSearchResults] = useState([])
 
@@ -923,6 +959,37 @@ export default function Crew({ user, userProfile, onFriendRequestsChange }) {
     showToast('Pinned game removed.', 'success')
   }
 
+  const shareCrew = (crew) => {
+    const text = `Join my crew "${crew.name}" on SwingSwipe ⛳\n\nOpen SwingSwipe → Crew tab → tap "+ Crew" → Join crew → type: ${crew.name}`
+    if (navigator.share) navigator.share({ title: `Join ${crew.name} on SwingSwipe`, text })
+    else navigator.clipboard?.writeText(crew.name).then(() => showToast('Crew name copied.', 'success'))
+  }
+
+  const openCrewMembers = (crew) => {
+    setManagingCrew(null)
+    setViewingCrewMembers(crew)
+  }
+
+  const openPinCrewGame = (crew) => {
+    setManagingCrew(null)
+    setPinningCrew(crew)
+  }
+
+  const openCustomizeCrew = (crew) => {
+    setManagingCrew(null)
+    setEditingCrew(crew)
+  }
+
+  const openLeaveCrew = (crew) => {
+    setManagingCrew(null)
+    setConfirmLeaveCrew(crew)
+  }
+
+  const openDeleteCrew = (crew) => {
+    setManagingCrew(null)
+    setConfirmDeleteCrew(crew)
+  }
+
   const getAddState = (id) => {
     if (friendIds.has(id)) return 'friends'
     if (sentRequestIds.has(id)) return 'sent'
@@ -1108,9 +1175,9 @@ export default function Crew({ user, userProfile, onFriendRequestsChange }) {
                             <p className="text-xs text-white/70">{crew.tagline || `${crew.memberCount || 1} member${crew.memberCount !== 1 ? 's' : ''}`}</p>
                           </div>
                         </div>
-                        <button onClick={() => setActiveChat(crew)}
+                        <button onClick={() => setManagingCrew(crew)}
                           className="text-sm bg-white text-gray-900 px-3 py-2 rounded-[10px] font-black">
-                          Chat
+                          Manage
                         </button>
                       </div>
                       <div className="flex items-center justify-between text-xs text-white/70 mb-3">
@@ -1118,7 +1185,7 @@ export default function Crew({ user, userProfile, onFriendRequestsChange }) {
                         <span>{getCrewTheme(crew.theme).name} theme</span>
                       </div>
                       <button
-                        onClick={() => setViewingCrewMembers(crew)}
+                        onClick={() => openCrewMembers(crew)}
                         className="w-full flex items-center justify-between bg-white/14 rounded-[12px] px-3 py-2 mb-2 active:opacity-75"
                       >
                         <div className="flex -space-x-2">
@@ -1131,44 +1198,13 @@ export default function Crew({ user, userProfile, onFriendRequestsChange }) {
                             <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-xs font-black">?</div>
                           )}
                         </div>
-                        <span className="text-xs font-black text-white">View members →</span>
+                        <span className="text-xs font-black text-white">Members →</span>
                       </button>
                       {crew.pinnedGame && (<div className="mb-2"><PinnedGameCard game={crew.pinnedGame} compact /></div>)}
-                      <button onClick={() => setPinningCrew(crew)} className="w-full text-xs text-white font-black bg-white/18 rounded-[10px] py-2 mb-2 active:opacity-70">{crew.pinnedGame ? 'Change pinned game' : 'Pin crew game'}</button>
-                      {crew.created_by === user.id && (
-                        <div className="grid grid-cols-2 gap-2 mb-2">
-                          <button
-                            onClick={() => setEditingCrew(crew)}
-                            className="w-full text-xs text-white font-black bg-white/18 rounded-[10px] py-2 active:opacity-70"
-                          >
-                            Customize
-                          </button>
-                          <button
-                            onClick={() => setConfirmDeleteCrew(crew)}
-                            className="w-full text-xs text-white font-black bg-red-500/75 rounded-[10px] py-2 active:opacity-70"
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      )}
-                      {crew.created_by !== user.id && (
-                        <button
-                          onClick={() => setConfirmLeaveCrew(crew)}
-                          className="w-full text-xs text-white font-black bg-red-500/70 rounded-[10px] py-2 mb-2 active:opacity-70"
-                        >
-                          Leave crew
-                        </button>
-                      )}
-                      <button
-                        onClick={() => {
-                          const text = `Join my crew "${crew.name}" on SwingSwipe ⛳\n\nOpen SwingSwipe → Crew tab → tap "+ Crew" → Join crew → type: ${crew.name}`
-                          if (navigator.share) navigator.share({ title: `Join ${crew.name} on SwingSwipe`, text })
-                          else navigator.clipboard?.writeText(crew.name).then(() => showToast('Crew name copied.', 'success'))
-                        }}
-                        className="w-full text-xs text-white font-black bg-white/18 rounded-[10px] py-2 flex items-center justify-center gap-1.5 active:opacity-70"
-                      >
-                        🔗 Invite friends — share crew name
-                      </button>
+                      <div className="grid grid-cols-2 gap-2">
+                        <button onClick={() => setActiveChat(crew)} className="w-full text-xs text-gray-900 font-black bg-white rounded-[10px] py-2.5 active:opacity-70">Chat</button>
+                        <button onClick={() => setManagingCrew(crew)} className="w-full text-xs text-white font-black bg-white/18 rounded-[10px] py-2.5 active:opacity-70">Manage</button>
+                      </div>                      </button>
                       </div>
                     </div>
                   ))}
@@ -1238,6 +1274,19 @@ export default function Crew({ user, userProfile, onFriendRequestsChange }) {
           crew={editingCrew}
           onClose={() => setEditingCrew(null)}
           onDone={handleCrewUpdated}
+        />
+      )}
+      {managingCrew && (
+        <CrewManageModal
+          crew={managingCrew}
+          isCreator={managingCrew.created_by === user.id}
+          onClose={() => setManagingCrew(null)}
+          onInvite={() => shareCrew(managingCrew)}
+          onMembers={() => openCrewMembers(managingCrew)}
+          onPin={() => openPinCrewGame(managingCrew)}
+          onCustomize={() => openCustomizeCrew(managingCrew)}
+          onLeave={() => openLeaveCrew(managingCrew)}
+          onDelete={() => openDeleteCrew(managingCrew)}
         />
       )}
       {pinningCrew && (<PinGameModal crew={pinningCrew} members={crewMembers[pinningCrew.id] || []} onClose={() => setPinningCrew(null)} onPinned={game => pinCrewGame(pinningCrew, game)} />)}
