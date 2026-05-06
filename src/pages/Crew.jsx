@@ -1204,7 +1204,7 @@ export default function Crew({ user, userProfile, onFriendRequestsChange }) {
                       <div className="grid grid-cols-2 gap-2">
                         <button onClick={() => setActiveChat(crew)} className="w-full text-xs text-gray-900 font-black bg-white rounded-[10px] py-2.5 active:opacity-70">Chat</button>
                         <button onClick={() => setManagingCrew(crew)} className="w-full text-xs text-white font-black bg-white/18 rounded-[10px] py-2.5 active:opacity-70">Manage</button>
-                      </div>                      </button>
+                      </div>
                       </div>
                     </div>
                   ))}
