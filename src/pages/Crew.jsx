@@ -7,7 +7,13 @@ import PublicProfileModal from '../components/PublicProfileModal'
 import ConfirmSheet from '../components/ConfirmSheet'
 import Leaderboard from './Leaderboard'
 import { showToast } from '../components/Toast'
-import { CHALLENGE_TYPE_OPTIONS, getChallengeTitle, getChallengeTypeLabel } from '../utils/crewChallenges'
+import {
+  CHALLENGE_TYPE_OPTIONS,
+  calculateChallengeStandings,
+  calculatePointAwards,
+  getChallengeTitle,
+  getChallengeTypeLabel,
+} from '../utils/crewChallenges'
 
 const CREW_THEMES = {
   classic: {
@@ -101,8 +107,9 @@ function PinnedGameCard({ game, compact = false }) {
   )
 }
 
-function ChallengeCard({ challenge, compact = false }) {
+function ChallengeCard({ challenge, compact = false, standings = [], pointsTotal = 0 }) {
   if (!challenge) return null
+  const leader = standings[0]
   return (
     <div className={`rounded-[16px] bg-white/90 border border-white shadow-sm ${compact ? 'p-3' : 'p-4'}`}>
       <div className="flex items-start justify-between gap-3">
@@ -113,11 +120,30 @@ function ChallengeCard({ challenge, compact = false }) {
         </div>
         <span className="shrink-0 text-[11px] font-black text-[#064e35] bg-[#e8f5ef] rounded-full px-2.5 py-1">Active</span>
       </div>
+      {leader ? (
+        <div className="mt-3 rounded-[12px] bg-[#f6fbf8] border border-[#e3f2eb] px-3 py-2">
+          <p className="text-[10px] uppercase font-black text-[#1D9E75]">Current leader</p>
+          <p className="text-xs font-black text-gray-800">{leader.member?.profile?.name || 'Golfer'} · {leader.label}</p>
+        </div>
+      ) : (
+        <p className="text-xs text-gray-400 mt-2">No qualifying rounds logged this week yet.</p>
+      )}
+      {!compact && standings.length > 1 && (
+        <div className="mt-2 space-y-1">
+          {standings.slice(0, 3).map(row => (
+            <div key={row.userId} className="flex items-center justify-between text-xs text-gray-600">
+              <span className="font-bold">#{row.rank} {row.member?.profile?.name || 'Golfer'}</span>
+              <span>{row.label}</span>
+            </div>
+          ))}
+        </div>
+      )}
+      {pointsTotal > 0 && <p className="text-[11px] text-gray-400 mt-2">{pointsTotal} crew point{pointsTotal !== 1 ? 's' : ''} awarded so far</p>}
     </div>
   )
 }
 
-function CrewChat({ crew, currentUserId, onClose, onPinGame, onUnpinGame, onSetChallenge }) {
+function CrewChat({ crew, currentUserId, onClose, onPinGame, onUnpinGame, onSetChallenge, onCloseChallenge }) {
   const [messages, setMessages] = useState([])
   const [profiles, setProfiles] = useState({})
   const [text, setText] = useState('')
@@ -183,12 +209,15 @@ function CrewChat({ crew, currentUserId, onClose, onPinGame, onUnpinGame, onSetC
         <div className="pointer-events-none absolute -right-12 top-20 w-36 h-36 rounded-full bg-white/35" />
         <div className="pointer-events-none absolute -left-10 bottom-24 w-28 h-28 rounded-full bg-white/25" />
         <div className="relative z-10 space-y-2">
-          {crew.activeChallenge ? <ChallengeCard challenge={crew.activeChallenge} /> : null}
+          {crew.activeChallenge ? <ChallengeCard challenge={crew.activeChallenge} standings={crew.challengeStandings || []} pointsTotal={crew.challengePointsTotal || 0} /> : null}
           {crew.pinnedGame ? <PinnedGameCard game={crew.pinnedGame} /> : null}
           <div className="grid grid-cols-2 gap-2">
             <button onClick={() => onSetChallenge(crew)} className="h-9 rounded-[10px] bg-white/75 text-xs font-black text-gray-700 shadow-sm active:opacity-75">{crew.activeChallenge ? 'Change challenge' : 'Set challenge'}</button>
             <button onClick={() => onPinGame(crew)} className="h-9 rounded-[10px] bg-white/75 text-xs font-black text-gray-700 shadow-sm active:opacity-75">{crew.pinnedGame ? 'Change pinned game' : 'Pin a game'}</button>
           </div>
+          {crew.activeChallenge && crew.challengeStandings?.length ? (
+            <button onClick={() => onCloseChallenge(crew)} className="w-full h-9 rounded-[10px] bg-white/80 text-xs font-black text-[#064e35] shadow-sm active:opacity-75">Close & award points</button>
+          ) : null}
           {crew.pinnedGame ? (
             <div className="grid grid-cols-2 gap-2">
               <button onClick={onClose} className="h-9 rounded-[10px] bg-white/60 text-xs font-black text-gray-500 shadow-sm active:opacity-75">Back</button>
@@ -675,7 +704,7 @@ function ChallengeModal({ crew, userId, onClose, onSaved, onCleared }) {
   )
 }
 
-function CrewManageModal({ crew, isCreator, onClose, onInvite, onMembers, onPin, onChallenge, onCustomize, onLeave, onDelete }) {
+function CrewManageModal({ crew, isCreator, onClose, onInvite, onMembers, onPin, onChallenge, onCloseChallenge, onCustomize, onLeave, onDelete }) {
   const theme = getCrewTheme(crew.theme)
   const actionClass = 'w-full h-11 rounded-[12px] bg-gray-50 text-gray-800 text-sm font-black flex items-center justify-between px-3 active:opacity-75'
 
@@ -700,6 +729,7 @@ function CrewManageModal({ crew, isCreator, onClose, onInvite, onMembers, onPin,
             <button onClick={onMembers} className={actionClass}><span>View members</span><span>→</span></button>
             <button onClick={onPin} className={actionClass}><span>{crew.pinnedGame ? 'Change pinned game' : 'Pin crew game'}</span><span>📌</span></button>
             <button onClick={onChallenge} className={actionClass}><span>{crew.activeChallenge ? 'Change weekly challenge' : 'Set weekly challenge'}</span><span>🏆</span></button>
+            {crew.activeChallenge && crew.challengeStandings?.length ? <button onClick={onCloseChallenge} className={actionClass}><span>Close & award points</span><span>⭐</span></button> : null}
             {isCreator && <button onClick={onCustomize} className={actionClass}><span>Customize crew</span><span>🎨</span></button>}
             {!isCreator && <button onClick={onLeave} className="w-full h-11 rounded-[12px] bg-red-50 text-red-500 text-sm font-black flex items-center justify-between px-3 active:opacity-75"><span>Leave crew</span><span>↗</span></button>}
             {isCreator && <button onClick={onDelete} className="w-full h-11 rounded-[12px] bg-red-50 text-red-500 text-sm font-black flex items-center justify-between px-3 active:opacity-75"><span>Delete crew</span><span>✕</span></button>}
@@ -803,6 +833,7 @@ export default function Crew({ user, userProfile, onFriendRequestsChange }) {
     }
 
     // Fetch member profiles for each crew
+    let membersByCrew = {}
     if (crewList.length) {
       const { data: memberRows } = await supabase
         .from('crew_members')
@@ -813,11 +844,10 @@ export default function Crew({ user, userProfile, onFriendRequestsChange }) {
       if (memberProfileIds.length) {
         const { data: memberProfiles } = await supabase
           .from('profiles')
-          .select('id, name, avatar_url, home_course')
+          .select('id, name, avatar_url, home_course, handicap_range, avg_score')
           .in('id', memberProfileIds)
         memberProfiles?.forEach(p => { memberProfileMap[p.id] = p })
       }
-      const membersByCrew = {}
       memberRows?.forEach(row => {
         if (!membersByCrew[row.crew_id]) membersByCrew[row.crew_id] = []
         membersByCrew[row.crew_id].push({ ...row, profile: memberProfileMap[row.user_id] })
@@ -839,7 +869,7 @@ export default function Crew({ user, userProfile, onFriendRequestsChange }) {
     if (crewList.length) {
       const { data: challenges } = await supabase
         .from('crew_challenges')
-        .select('id, crew_id, created_by, title, challenge_type, status, created_at')
+        .select('id, crew_id, created_by, title, challenge_type, status, created_at, closed_at, awarded_by')
         .in('crew_id', crewList.map(c => c.id))
         .eq('status', 'active')
         .order('created_at', { ascending: false })
@@ -848,6 +878,50 @@ export default function Crew({ user, userProfile, onFriendRequestsChange }) {
         if (!challengeMap[challenge.crew_id]) challengeMap[challenge.crew_id] = challenge
       })
       crewList = crewList.map(c => ({ ...c, activeChallenge: challengeMap[c.id] || null }))
+    }
+
+    const activeChallengeCrewIds = crewList.filter(c => c.activeChallenge).map(c => c.id)
+    if (activeChallengeCrewIds.length) {
+      const challengeMemberIds = [...new Set(activeChallengeCrewIds.flatMap(crewId => (membersByCrew[crewId] || []).map(member => member.user_id)))]
+      const monday = new Date()
+      const day = monday.getDay()
+      monday.setDate(monday.getDate() - (day === 0 ? 6 : day - 1))
+      const weekStart = monday.toISOString().split('T')[0]
+
+      const { data: roundRows, error: roundError } = await supabase
+        .from('round_logs')
+        .select('id, user_id, score, date, holes')
+        .in('user_id', challengeMemberIds)
+        .gte('date', weekStart)
+
+      if (roundError) {
+        console.warn('Crew challenge rounds failed', roundError.message)
+      } else {
+        crewList = crewList.map(c => {
+          if (!c.activeChallenge) return c
+          return {
+            ...c,
+            challengeStandings: calculateChallengeStandings({
+              challenge: c.activeChallenge,
+              members: membersByCrew[c.id] || [],
+              rounds: roundRows || [],
+              today: new Date(),
+            }),
+          }
+        })
+      }
+    }
+
+    if (crewList.length) {
+      const { data: pointRows } = await supabase
+        .from('crew_challenge_points')
+        .select('crew_id, user_id, points')
+        .in('crew_id', crewList.map(c => c.id))
+      const totalsByCrew = {}
+      pointRows?.forEach(row => {
+        totalsByCrew[row.crew_id] = (totalsByCrew[row.crew_id] || 0) + (row.points || 0)
+      })
+      crewList = crewList.map(c => ({ ...c, challengePointsTotal: totalsByCrew[c.id] || 0 }))
     }
 
     setCrews(crewList)
@@ -1107,6 +1181,55 @@ export default function Crew({ user, userProfile, onFriendRequestsChange }) {
     setCrews(list => list.map(c => c.id === crewId ? { ...c, activeChallenge } : c))
     if (activeChat?.id === crewId) setActiveChat({ ...activeChat, activeChallenge })
     if (challengingCrew?.id === crewId) setChallengingCrew(null)
+  }
+
+  const closeChallenge = async (crew) => {
+    if (!crew.activeChallenge) return
+    const awards = calculatePointAwards(crew.challengeStandings || [])
+    if (!awards.length) {
+      showToast('No qualifying rounds yet.')
+      return
+    }
+
+    setManagingCrew(null)
+    const awardRows = awards.map(row => ({
+      challenge_id: crew.activeChallenge.id,
+      crew_id: crew.id,
+      user_id: row.userId,
+      points: row.points,
+      rank: row.rank,
+      reason: row.reason,
+    }))
+
+    const { error: awardError } = await supabase
+      .from('crew_challenge_points')
+      .upsert(awardRows, { onConflict: 'challenge_id,user_id' })
+
+    if (awardError) {
+      showToast(`Could not award points: ${awardError.message}`)
+      return
+    }
+
+    const { error: closeError } = await supabase
+      .from('crew_challenges')
+      .update({ status: 'closed', closed_at: new Date().toISOString(), awarded_by: user.id })
+      .eq('id', crew.activeChallenge.id)
+
+    if (closeError) {
+      showToast(`Could not close challenge: ${closeError.message}`)
+      return
+    }
+
+    const totalPoints = awards.reduce((sum, row) => sum + row.points, 0)
+    await logCrewActivity(crew.id, user.id, `Weekly challenge closed: ${getChallengeTitle(crew.activeChallenge)} · ${totalPoints} points awarded`)
+    showToast(`${totalPoints} points awarded.`, 'success')
+    setCrews(list => list.map(c => (
+      c.id === crew.id
+        ? { ...c, activeChallenge: null, challengeStandings: [], challengePointsTotal: (c.challengePointsTotal || 0) + totalPoints }
+        : c
+    )))
+    if (activeChat?.id === crew.id) setActiveChat({ ...activeChat, activeChallenge: null, challengeStandings: [], challengePointsTotal: (activeChat.challengePointsTotal || 0) + totalPoints })
+    fetchAll()
   }
 
   const pinCrewGame = async (crew, game) => {
@@ -1371,7 +1494,7 @@ export default function Crew({ user, userProfile, onFriendRequestsChange }) {
                         </div>
                         <span className="text-xs font-black text-white">Members →</span>
                       </button>
-                      {crew.activeChallenge && (<div className="mb-2"><ChallengeCard challenge={crew.activeChallenge} compact /></div>)}
+                      {crew.activeChallenge && (<div className="mb-2"><ChallengeCard challenge={crew.activeChallenge} standings={crew.challengeStandings || []} pointsTotal={crew.challengePointsTotal || 0} compact /></div>)}
                       {crew.pinnedGame && (<div className="mb-2"><PinnedGameCard game={crew.pinnedGame} compact /></div>)}
                       <div className="grid grid-cols-2 gap-2">
                         <button onClick={() => setActiveChat(crew)} className="w-full text-xs text-gray-900 font-black bg-white rounded-[10px] py-2.5 active:opacity-70">Chat</button>
@@ -1439,7 +1562,7 @@ export default function Crew({ user, userProfile, onFriendRequestsChange }) {
         )}
       </div>
 
-      {activeChat && (<CrewChat crew={activeChat} currentUserId={user.id} onClose={() => setActiveChat(null)} onPinGame={crew => setPinningCrew(crew)} onUnpinGame={unpinCrewGame} onSetChallenge={openChallenge} />)}
+      {activeChat && (<CrewChat crew={activeChat} currentUserId={user.id} onClose={() => setActiveChat(null)} onPinGame={crew => setPinningCrew(crew)} onUnpinGame={unpinCrewGame} onSetChallenge={openChallenge} onCloseChallenge={closeChallenge} />)}
       {showCrewModal && <ManageCrewModal userId={user.id} onClose={() => setShowCrewModal(false)} onDone={fetchAll} />}
       {editingCrew && (
         <EditCrewModal
@@ -1457,6 +1580,7 @@ export default function Crew({ user, userProfile, onFriendRequestsChange }) {
           onMembers={() => openCrewMembers(managingCrew)}
           onPin={() => openPinCrewGame(managingCrew)}
           onChallenge={() => openChallenge(managingCrew)}
+          onCloseChallenge={() => closeChallenge(managingCrew)}
           onCustomize={() => openCustomizeCrew(managingCrew)}
           onLeave={() => openLeaveCrew(managingCrew)}
           onDelete={() => openDeleteCrew(managingCrew)}
@@ -1468,8 +1592,14 @@ export default function Crew({ user, userProfile, onFriendRequestsChange }) {
           crew={challengingCrew}
           userId={user.id}
           onClose={() => setChallengingCrew(null)}
-          onSaved={challenge => handleChallengeChanged(challengingCrew.id, challenge)}
-          onCleared={() => handleChallengeChanged(challengingCrew.id, null)}
+          onSaved={challenge => {
+            handleChallengeChanged(challengingCrew.id, challenge)
+            fetchAll()
+          }}
+          onCleared={() => {
+            handleChallengeChanged(challengingCrew.id, null)
+            fetchAll()
+          }}
         />
       )}
       {viewingCrewMembers && (

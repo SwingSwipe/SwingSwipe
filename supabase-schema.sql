@@ -161,11 +161,45 @@ create table if not exists public.crew_challenges (
   created_at timestamp default now()
 );
 
+alter table public.crew_challenges
+add column if not exists closed_at timestamp,
+add column if not exists awarded_by uuid references public.profiles(id);
+
+alter table public.round_logs
+add column if not exists holes int default 18;
+
 create unique index if not exists crew_challenges_one_active_per_crew
 on public.crew_challenges (crew_id)
 where status = 'active';
 
+create table if not exists public.crew_challenge_points (
+  id uuid primary key default gen_random_uuid(),
+  challenge_id uuid not null references public.crew_challenges(id) on delete cascade,
+  crew_id uuid not null references public.crews(id) on delete cascade,
+  user_id uuid not null references public.profiles(id),
+  points int not null default 0,
+  rank int,
+  reason text,
+  awarded_at timestamp default now(),
+  unique(challenge_id, user_id)
+);
+
 alter table public.crew_challenges enable row level security;
+alter table public.crew_challenge_points enable row level security;
+
+drop policy if exists "Crew members can view member round logs" on public.round_logs;
+create policy "Crew members can view member round logs"
+on public.round_logs for select
+using (
+  auth.uid() = user_id
+  or exists (
+    select 1
+    from public.crew_members viewer
+    join public.crew_members player on player.crew_id = viewer.crew_id
+    where viewer.user_id = auth.uid()
+      and player.user_id = round_logs.user_id
+  )
+);
 
 drop policy if exists "Crew members can view challenges" on public.crew_challenges;
 create policy "Crew members can view challenges"
@@ -208,6 +242,50 @@ with check (
     select 1
     from public.crew_members
     where crew_members.crew_id = crew_challenges.crew_id
+      and crew_members.user_id = auth.uid()
+  )
+);
+
+drop policy if exists "Crew members can view challenge points" on public.crew_challenge_points;
+create policy "Crew members can view challenge points"
+on public.crew_challenge_points for select
+using (
+  exists (
+    select 1
+    from public.crew_members
+    where crew_members.crew_id = crew_challenge_points.crew_id
+      and crew_members.user_id = auth.uid()
+  )
+);
+
+drop policy if exists "Crew members can award challenge points" on public.crew_challenge_points;
+create policy "Crew members can award challenge points"
+on public.crew_challenge_points for insert
+with check (
+  exists (
+    select 1
+    from public.crew_members
+    where crew_members.crew_id = crew_challenge_points.crew_id
+      and crew_members.user_id = auth.uid()
+  )
+);
+
+drop policy if exists "Crew members can update challenge points" on public.crew_challenge_points;
+create policy "Crew members can update challenge points"
+on public.crew_challenge_points for update
+using (
+  exists (
+    select 1
+    from public.crew_members
+    where crew_members.crew_id = crew_challenge_points.crew_id
+      and crew_members.user_id = auth.uid()
+  )
+)
+with check (
+  exists (
+    select 1
+    from public.crew_members
+    where crew_members.crew_id = crew_challenge_points.crew_id
       and crew_members.user_id = auth.uid()
   )
 );
