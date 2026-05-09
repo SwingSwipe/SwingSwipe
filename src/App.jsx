@@ -196,7 +196,7 @@ export default function App() {
           { user_id: user.id, subscription: sub.toJSON() },
           { onConflict: 'user_id' }
         )
-      } catch (e) { /* push not supported or blocked */ }
+      } catch { /* push not supported or blocked */ }
     }
     setup()
   }, [user])
@@ -225,7 +225,7 @@ export default function App() {
           const mins = Math.round(minsAway)
           new Notification(`Tee time in ${mins < 60 ? `${mins}m` : `${Math.round(mins/60)}h`} ⛳`, {
             body: `${g.course_name} — don't be late!`,
-            icon: '/icon-192.png',
+            icon: '/favicon.svg',
             tag: `tee-${g.date}-${g.tee_time}`,
           })
         }
@@ -244,7 +244,7 @@ export default function App() {
           const mins = Math.round(minsAway)
           new Notification(`Your game starts in ${mins < 60 ? `${mins}m` : `${Math.round(mins/60)}h`} ⛳`, {
             body: `${g.course_name} — your players are counting on you!`,
-            icon: '/icon-192.png',
+            icon: '/favicon.svg',
             tag: `host-${g.date}-${g.tee_time}`,
           })
         }
@@ -270,7 +270,7 @@ export default function App() {
           if ('Notification' in window && Notification.permission === 'granted') {
             new Notification('New join request ⛳', {
               body: `Someone wants to join your game at ${listing.course_name}`,
-              icon: '/icon-192.png',
+              icon: '/favicon.svg',
             })
           } else {
             sendPush(user.id, 'New join request ⛳', `Someone wants to join your game at ${listing.course_name}`)
@@ -342,7 +342,7 @@ export default function App() {
           const title = "You're in! 🎉"
           const body = `Your request to join ${listing?.course_name || 'the game'} was accepted`
           if ('Notification' in window && Notification.permission === 'granted') {
-            new Notification(title, { body, icon: '/icon-192.png' })
+            new Notification(title, { body, icon: '/favicon.svg' })
           } else {
             sendPush(user.id, title, body)
           }
@@ -494,7 +494,7 @@ export default function App() {
       </div>
       {/* Mobile: no frame wrapper needed */}
       <div className="md:hidden w-full">
-        <div className="flex flex-col h-screen app-surface overflow-hidden">
+        <div className="mobile-app-shell flex flex-col h-screen app-surface overflow-hidden">
           {renderContent()}
         </div>
       </div>

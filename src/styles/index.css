@@ -19,6 +19,13 @@
     color: #1a1a1a;
     -webkit-font-smoothing: antialiased;
     overscroll-behavior: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+@supports (height: 100dvh) {
+  .mobile-app-shell {
+    height: 100dvh;
   }
 }
 

@@ -1,5 +1,5 @@
-const CACHE = 'swingswipe-v1'
-const STATIC = ['/', '/index.html', '/manifest.json']
+const CACHE = 'swingswipe-v2'
+const STATIC = ['/', '/index.html', '/manifest.json', '/favicon.svg']
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(STATIC)))
@@ -20,8 +20,8 @@ self.addEventListener('push', e => {
   e.waitUntil(
     self.registration.showNotification(data.title || 'SwingSwipe ⛳', {
       body: data.body || '',
-      icon: '/icon-192.png',
-      badge: '/icon-192.png',
+      icon: '/favicon.svg',
+      badge: '/favicon.svg',
       data,
     })
   )
@@ -36,16 +36,30 @@ self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return
   if (e.request.url.includes('supabase') || e.request.url.includes('anthropic')) return
 
+  if (e.request.mode === 'navigate') {
+    e.respondWith(
+      fetch(e.request)
+        .then(res => {
+          if (res.ok) {
+            const clone = res.clone()
+            caches.open(CACHE).then(c => c.put('/index.html', clone))
+          }
+          return res
+        })
+        .catch(() => caches.match('/index.html'))
+    )
+    return
+  }
+
   e.respondWith(
-    caches.match(e.request).then(cached => {
-      const network = fetch(e.request).then(res => {
+    fetch(e.request)
+      .then(res => {
         if (res.ok) {
           const clone = res.clone()
           caches.open(CACHE).then(c => c.put(e.request, clone))
         }
         return res
       })
-      return cached || network
-    })
+      .catch(() => caches.match(e.request))
   )
 })
