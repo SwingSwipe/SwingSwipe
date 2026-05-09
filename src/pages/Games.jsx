@@ -304,7 +304,7 @@ function PostGameModal({ userId, onClose, onPosted }) {
 }
 
 export default function Games({ user }) {
-  const [tab, setTab] = useState('discover')
+  const [tab, setTab] = useState('mine')
   const [myGames, setMyGames] = useState([])
   const [joinedGames, setJoinedGames] = useState([])
   const [invites, setInvites] = useState([])
@@ -315,6 +315,7 @@ export default function Games({ user }) {
   const [chatGame, setChatGame] = useState(null)
   const [rateGame, setRateGame] = useState(null)
   const [confirmDelete, setConfirmDelete] = useState(null)
+  const [confirmWithdraw, setConfirmWithdraw] = useState(null)
   const [ratePlayers, setRatePlayers] = useState([])
   const [actingRequestId, setActingRequestId] = useState(null)
   const [viewingProfile, setViewingProfile] = useState(null)
@@ -330,8 +331,6 @@ export default function Games({ user }) {
       fetchGames().finally(() => setRefreshing(false))
     }
   }
-
-  useEffect(() => { fetchGames() }, [])
 
   const fetchGames = async () => {
     setLoading(true)
@@ -408,6 +407,10 @@ export default function Games({ user }) {
     setInvites(inviteRows || [])
     setLoading(false)
   }
+
+  useEffect(() => {
+    Promise.resolve().then(fetchGames)
+  }, [])
 
   const handleAccept = async (requestId, listingId) => {
     setActingRequestId(requestId)
@@ -496,6 +499,43 @@ export default function Games({ user }) {
       return
     }
     showToast('Invite declined.', 'success')
+    fetchGames()
+  }
+
+  const handleWithdrawJoinedGame = async () => {
+    const game = confirmWithdraw
+    setConfirmWithdraw(null)
+    if (!game) return
+
+    const firstName = user.user_metadata?.name?.split(' ')[0] || 'A player'
+    await supabase.from('round_messages').insert({
+      listing_id: game.id,
+      user_id: user.id,
+      content: `📢 ${firstName} has withdrawn — a spot is now open.`,
+    })
+
+    const { error: requestError } = await supabase
+      .from('round_requests')
+      .delete()
+      .eq('id', game.requestId)
+
+    if (requestError) {
+      showToast(`Could not withdraw: ${requestError.message}`)
+      return
+    }
+
+    const newFilled = Math.max(1, Number(game.spots_filled || 1) - 1)
+    const { error: listingError } = await supabase
+      .from('round_listings')
+      .update({ spots_filled: newFilled, is_active: newFilled < game.spots_total })
+      .eq('id', game.id)
+
+    if (listingError) {
+      showToast(`Withdrawn, but spot count failed: ${listingError.message}`)
+    } else {
+      showToast('You withdrew from the game.', 'success')
+    }
+
     fetchGames()
   }
 
@@ -893,6 +933,11 @@ export default function Games({ user }) {
                           ⭐ Rate players
                         </button>
                       )}
+                      {!isPast(game.date) && (
+                        <button onClick={() => setConfirmWithdraw(game)} className="flex-1 py-2 bg-red-50 rounded-[8px] text-sm font-semibold text-red-500">
+                          Withdraw
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -927,6 +972,13 @@ export default function Games({ user }) {
         confirmLabel={(myGames.find(g => g.id === confirmDelete)?.spots_filled || 0) > 1 ? 'Yes, cancel game' : 'Delete game'}
         onConfirm={handleDeleteGame}
         onCancel={() => setConfirmDelete(null)}
+      />}
+      {confirmWithdraw && <ConfirmSheet
+        title="Withdraw from this game?"
+        message="The host will see that a spot opened back up."
+        confirmLabel="Yes, withdraw"
+        onConfirm={handleWithdrawJoinedGame}
+        onCancel={() => setConfirmWithdraw(null)}
       />}
       {rateGame && (
         <RatePlayersModal
