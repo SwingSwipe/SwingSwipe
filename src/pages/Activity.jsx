@@ -5,6 +5,27 @@ import { ActivityItemSkeleton } from '../components/Skeleton'
 import RatePlayersModal from '../components/RatePlayersModal'
 import { showToast } from '../components/Toast'
 
+const HANDICAP_LABELS = { beginner: 'Beginner', '90s': '90s shooter', '80s': '80s shooter', '70s': '70s shooter', scratch: 'Scratch' }
+const PACE_LABELS = { fast: 'Fast', moderate: 'Moderate', relaxed: 'Relaxed' }
+
+function RequestTrustStrip({ profile }) {
+  if (!profile) return null
+  const chips = [
+    HANDICAP_LABELS[profile.handicap_range] || 'Skill not set',
+    profile.avg_score ? 'Avg ' + profile.avg_score : 'Avg not set',
+    PACE_LABELS[profile.pace] || 'Pace not set',
+    profile.cart_or_walk === 'cart' ? 'Cart' : profile.cart_or_walk === 'walking' ? 'Walks' : profile.cart_or_walk === 'either' ? 'Cart/walk' : 'Style not set',
+    profile.home_course || profile.location || 'No home course',
+  ]
+  return (
+    <div className="flex flex-wrap gap-1.5 mt-3">
+      {chips.map(chip => (
+        <span key={chip} className="rounded-full bg-[#f2f8f5] text-[#064e35] px-2.5 py-1 text-[10px] font-black">{chip}</span>
+      ))}
+    </div>
+  )
+}
+
 function timeAgo(ts) {
   const diff = Date.now() - new Date(ts).getTime()
   const m = Math.floor(diff / 60000)
@@ -145,6 +166,7 @@ export default function Activity({ user }) {
           requesterId: r.requester_id,
           ts: r.created_at,
           avatar: r.profiles,
+          profile: r.profiles,
           emoji: '🙋',
           text: `${name} wants to join your game at ${course}`,
           type: 'inbound_pending',
@@ -336,6 +358,7 @@ export default function Activity({ user }) {
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-black text-gray-900 leading-snug">{item.text}</p>
                         <p className="text-xs text-gray-400 mt-0.5">{timeAgo(item.ts)}</p>
+                        <RequestTrustStrip profile={item.profile} />
                       </div>
                     </div>
                     <div className="grid grid-cols-2 gap-2 mt-4">

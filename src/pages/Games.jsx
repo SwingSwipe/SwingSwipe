@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../supabase'
 import { showToast } from '../components/Toast'
 import Avatar from '../components/Avatar'
@@ -43,6 +43,34 @@ const PACE_LABELS = {
   quick: '⚡ Quick (~3h)',
   normal: '⏱ Normal (~4h)',
   relaxed: '☕ Relaxed (4.5h+)',
+}
+
+const TRUST_FIELD_CLASS = 'rounded-[10px] bg-white border border-gray-100 px-2.5 py-2'
+
+function RequesterTrustGrid({ profile }) {
+  if (!profile) return null
+  const transport = profile.cart_or_walk === 'cart' ? 'Cart' : profile.cart_or_walk === 'walking' ? 'Walks' : profile.cart_or_walk === 'either' ? 'Cart/walk' : 'Not set'
+  const pace = PLAYER_PACE_LABELS[profile.pace] || 'Pace not set'
+  return (
+    <div className="grid grid-cols-2 gap-2 mt-3">
+      <div className={TRUST_FIELD_CLASS}>
+        <p className="text-[10px] uppercase font-black text-gray-400">Skill</p>
+        <p className="text-xs font-black text-gray-800 truncate">{HANDICAP_LABELS[profile.handicap_range] || 'Not set'}</p>
+      </div>
+      <div className={TRUST_FIELD_CLASS}>
+        <p className="text-[10px] uppercase font-black text-gray-400">Avg</p>
+        <p className="text-xs font-black text-gray-800 truncate">{profile.avg_score || 'Not set'}</p>
+      </div>
+      <div className={TRUST_FIELD_CLASS}>
+        <p className="text-[10px] uppercase font-black text-gray-400">Pace</p>
+        <p className="text-xs font-black text-gray-800 truncate">{pace}</p>
+      </div>
+      <div className={TRUST_FIELD_CLASS}>
+        <p className="text-[10px] uppercase font-black text-gray-400">Style</p>
+        <p className="text-xs font-black text-gray-800 truncate">{transport}</p>
+      </div>
+    </div>
+  )
 }
 
 function GameChat({ listing, currentUserId, onClose }) {
@@ -329,7 +357,7 @@ export default function Games({ user }) {
         const { data: requesterProfiles } = requesterIds.length
           ? await supabase
               .from('profiles')
-              .select('id, name, avatar_url, handicap_range, vibe_tags, pace, cart_or_walk, home_course, location')
+              .select('id, name, avatar_url, handicap_range, avg_score, vibe_tags, pace, cart_or_walk, home_course, location')
               .in('id', requesterIds)
           : { data: [] }
         const profileMap = {}
@@ -691,6 +719,7 @@ export default function Games({ user }) {
                                     </div>
                                     <span className="text-[10px] font-bold text-gray-400 shrink-0">View →</span>
                                   </div>
+                                  <RequesterTrustGrid profile={req.profiles} />
                                   <div className="flex flex-wrap gap-1.5 mt-2">
                                     <span className="pill bg-[#1D9E75]/10 text-[#064e35] text-[10px] py-0.5">
                                       {HANDICAP_LABELS[req.profiles?.handicap_range] || 'Skill not set'}
