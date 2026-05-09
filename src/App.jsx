@@ -95,6 +95,10 @@ class TabErrorBoundary extends Component {
     return { error }
   }
 
+  componentDidCatch(error, errorInfo) {
+    console.error('Tab render failed', error, errorInfo)
+  }
+
   componentDidUpdate(prevProps) {
     if (prevProps.tabKey !== this.props.tabKey && this.state.error) {
       this.setState({ error: null })

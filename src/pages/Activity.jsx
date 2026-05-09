@@ -12,11 +12,11 @@ function RequestTrustStrip({ profile }) {
   if (!profile) return null
   const chips = [
     HANDICAP_LABELS[profile.handicap_range] || 'Skill not set',
-    profile.avg_score ? 'Avg ' + profile.avg_score : 'Avg not set',
+    profile.avg_score ? `Avg ${profile.avg_score}` : 'Avg not set',
     PACE_LABELS[profile.pace] || 'Pace not set',
     profile.cart_or_walk === 'cart' ? 'Cart' : profile.cart_or_walk === 'walking' ? 'Walks' : profile.cart_or_walk === 'either' ? 'Cart/walk' : 'Style not set',
     profile.home_course || profile.location || 'No home course',
-  ]
+  ].filter(Boolean)
   return (
     <div className="flex flex-wrap gap-1.5 mt-3">
       {chips.map(chip => (
@@ -27,7 +27,9 @@ function RequestTrustStrip({ profile }) {
 }
 
 function timeAgo(ts) {
+  if (!ts) return 'just now'
   const diff = Date.now() - new Date(ts).getTime()
+  if (!Number.isFinite(diff)) return 'just now'
   const m = Math.floor(diff / 60000)
   if (m < 1) return 'just now'
   if (m < 60) return `${m}m ago`
@@ -43,15 +45,6 @@ export default function Activity({ user }) {
   const [unratedGames, setUnratedGames] = useState([])
   const [rateGame, setRateGame] = useState(null)
   const [ratePlayers, setRatePlayers] = useState([])
-
-  useEffect(() => {
-    fetchActivity()
-    fetchUnratedGames()
-    const channel = supabase.channel('activity-feed')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'round_requests' }, fetchActivity)
-      .subscribe()
-    return () => supabase.removeChannel(channel)
-  }, [])
 
   const fetchUnratedGames = async () => {
     const sevenDaysAgo = new Date()
@@ -114,88 +107,116 @@ export default function Activity({ user }) {
 
   const fetchActivity = async () => {
     setLoading(true)
+    try {
 
-    const { data: myListings } = await supabase
-      .from('round_listings')
-      .select('id, course_name, date')
-      .eq('host_id', user.id)
+      const { data: myListings, error: listingsError } = await supabase
+        .from('round_listings')
+        .select('id, course_name, date')
+        .eq('host_id', user.id)
 
-    const myListingIds = myListings?.map(l => l.id) || []
-    const listingMap = {}
-    myListings?.forEach(l => { listingMap[l.id] = l })
+      if (listingsError) throw listingsError
 
-    const [{ data: inboundRaw, error: inboundError }, { data: outbound }] = await Promise.all([
-      myListingIds.length
-        ? supabase.from('round_requests')
-            .select('id, status, created_at, listing_id, requester_id')
-            .in('listing_id', myListingIds)
-            .in('status', ['pending', 'accepted', 'declined'])
-            .order('created_at', { ascending: false })
-            .limit(30)
-        : Promise.resolve({ data: [] }),
-      supabase.from('round_requests')
-        .select('id, status, created_at, listing_id, invited_by, round_listings(course_name, date, profiles(name))')
-        .eq('requester_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(30),
-    ])
+      const myListingIds = myListings?.map(l => l.id) || []
+      const listingMap = {}
+      myListings?.forEach(l => { listingMap[l.id] = l })
 
-    if (inboundError) showToast(`Could not load activity requests: ${inboundError.message}`)
-    const requesterIds = [...new Set((inboundRaw || []).map(r => r.requester_id).filter(Boolean))]
-    const { data: requesterProfiles } = requesterIds.length
-      ? await supabase
-          .from('profiles')
-          .select('id, name, avatar_url')
-          .in('id', requesterIds)
-      : { data: [] }
-    const profileMap = {}
-    requesterProfiles?.forEach(p => { profileMap[p.id] = p })
-    const inbound = (inboundRaw || []).map(r => ({ ...r, profiles: profileMap[r.requester_id] }))
+      const [
+        { data: inboundRaw, error: inboundError },
+        { data: outbound, error: outboundError },
+      ] = await Promise.all([
+        myListingIds.length
+          ? supabase.from('round_requests')
+              .select('id, status, created_at, listing_id, requester_id')
+              .in('listing_id', myListingIds)
+              .in('status', ['pending', 'accepted', 'declined'])
+              .order('created_at', { ascending: false })
+              .limit(30)
+          : Promise.resolve({ data: [] }),
+        supabase.from('round_requests')
+          .select('id, status, created_at, listing_id, invited_by, round_listings(course_name, date, profiles(name))')
+          .eq('requester_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(30),
+      ])
 
-    const events = []
+      if (inboundError) throw inboundError
+      if (outboundError) throw outboundError
 
-    inbound?.forEach(r => {
-      const listing = listingMap[r.listing_id]
-      const name = r.profiles?.name?.split(' ')[0] || 'Someone'
-      const course = listing?.course_name || 'your game'
-      if (r.status === 'pending') {
-        events.push({
-          id: r.id,
-          requestId: r.id,
-          listingId: r.listing_id,
-          requesterId: r.requester_id,
-          ts: r.created_at,
-          avatar: r.profiles,
-          profile: r.profiles,
-          emoji: '🙋',
-          text: `${name} wants to join your game at ${course}`,
-          type: 'inbound_pending',
-        })
-      } else if (r.status === 'accepted') {
-        events.push({ id: r.id + '_acc', ts: r.created_at, avatar: r.profiles, emoji: '✅', text: `You accepted ${name} into your game at ${course}`, type: 'inbound_accepted' })
-      } else if (r.status === 'declined') {
-        events.push({ id: r.id + '_dec', ts: r.created_at, avatar: r.profiles, emoji: '❌', text: `You declined ${name}'s request for ${course}`, type: 'inbound_declined' })
-      }
-    })
+      const requesterIds = [...new Set((inboundRaw || []).map(r => r.requester_id).filter(Boolean))]
+      const { data: requesterProfiles, error: requesterProfilesError } = requesterIds.length
+        ? await supabase
+            .from('profiles')
+            .select('id, name, avatar_url, handicap_range, avg_score, pace, cart_or_walk, home_course, location')
+            .in('id', requesterIds)
+        : { data: [] }
 
-    outbound?.forEach(r => {
-      const course = r.round_listings?.course_name || 'a game'
-      const hostName = r.round_listings?.profiles?.name?.split(' ')[0] || 'the host'
-      if (r.status === 'invited') {
-        events.push({ id: r.id + '_inv', ts: r.created_at, emoji: '🎉', text: `You were invited to play at ${course}`, type: 'invited' })
-      } else if (r.status === 'pending') {
-        events.push({ id: r.id + '_out', ts: r.created_at, emoji: '⏳', text: `Waiting on ${hostName} for your request to join ${course}`, type: 'outbound_pending' })
-      } else if (r.status === 'accepted') {
-        events.push({ id: r.id + '_oacc', ts: r.created_at, emoji: '⛳', text: `You're in! ${hostName} accepted your request to join ${course}`, type: 'outbound_accepted' })
-      } else if (r.status === 'declined') {
-        events.push({ id: r.id + '_odec', ts: r.created_at, emoji: '😔', text: `${hostName} declined your request to join ${course}`, type: 'outbound_declined' })
-      }
-    })
+      if (requesterProfilesError) throw requesterProfilesError
 
-    events.sort((a, b) => new Date(b.ts) - new Date(a.ts))
-    setItems(events)
-    setLoading(false)
+      const profileMap = {}
+      requesterProfiles?.forEach(p => { profileMap[p.id] = p })
+      const inbound = (inboundRaw || []).map(r => ({ ...r, profiles: profileMap[r.requester_id] }))
+
+      const events = []
+
+      inbound?.forEach(r => {
+        const listing = listingMap[r.listing_id]
+        const name = r.profiles?.name?.split(' ')[0] || 'Someone'
+        const course = listing?.course_name || 'your game'
+        if (r.status === 'pending') {
+          events.push({
+            id: r.id,
+            requestId: r.id,
+            listingId: r.listing_id,
+            requesterId: r.requester_id,
+            ts: r.created_at,
+            avatar: r.profiles,
+            profile: r.profiles,
+            emoji: '🙋',
+            text: `${name} wants to join your game at ${course}`,
+            type: 'inbound_pending',
+          })
+        } else if (r.status === 'accepted') {
+          events.push({ id: r.id + '_acc', ts: r.created_at, avatar: r.profiles, emoji: '✅', text: `You accepted ${name} into your game at ${course}`, type: 'inbound_accepted' })
+        } else if (r.status === 'declined') {
+          events.push({ id: r.id + '_dec', ts: r.created_at, avatar: r.profiles, emoji: '❌', text: `You declined ${name}'s request for ${course}`, type: 'inbound_declined' })
+        }
+      })
+
+      outbound?.forEach(r => {
+        const course = r.round_listings?.course_name || 'a game'
+        const hostName = r.round_listings?.profiles?.name?.split(' ')[0] || 'the host'
+        if (r.status === 'invited') {
+          events.push({ id: r.id + '_inv', ts: r.created_at, emoji: '🎉', text: `You were invited to play at ${course}`, type: 'invited' })
+        } else if (r.status === 'pending') {
+          events.push({ id: r.id + '_out', ts: r.created_at, emoji: '⏳', text: `Waiting on ${hostName} for your request to join ${course}`, type: 'outbound_pending' })
+        } else if (r.status === 'accepted') {
+          events.push({ id: r.id + '_oacc', ts: r.created_at, emoji: '⛳', text: `You're in! ${hostName} accepted your request to join ${course}`, type: 'outbound_accepted' })
+        } else if (r.status === 'declined') {
+          events.push({ id: r.id + '_odec', ts: r.created_at, emoji: '😔', text: `${hostName} declined your request to join ${course}`, type: 'outbound_declined' })
+        }
+      })
+
+      events.sort((a, b) => new Date(b.ts) - new Date(a.ts))
+      setItems(events)
+    } catch (error) {
+      console.error('Activity load failed', error)
+      showToast('Could not load Activity. Pull down to refresh or try again.')
+      setItems([])
+    } finally {
+      setLoading(false)
+    }
   }
+
+  useEffect(() => {
+    Promise.resolve().then(() => {
+      fetchActivity()
+      fetchUnratedGames()
+    })
+    const channel = supabase.channel('activity-feed')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'round_requests' }, fetchActivity)
+      .subscribe()
+    return () => supabase.removeChannel(channel)
+  }, [])
 
   const handleAccept = async (item) => {
     setActingId(item.id)
