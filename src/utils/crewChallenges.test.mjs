@@ -97,3 +97,16 @@ test('crew point totals aggregate by crew and user', () => {
     c2: { total: 2, byUser: { u1: 2 } },
   })
 })
+
+
+test('lowest 9 standings ignore 18-hole rounds', () => {
+  const standings = calculateChallengeStandings({
+    challenge: { challenge_type: 'lowest_9', created_at: '2026-05-04T12:00:00Z' },
+    members: [{ user_id: 'u1', profile: { name: 'Arjun' } }],
+    rounds: [
+      { user_id: 'u1', score: 82, holes: 18, date: '2026-05-06' },
+    ],
+  })
+
+  assert.deepEqual(standings, [])
+})

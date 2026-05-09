@@ -105,6 +105,18 @@ function getProfileSignals(profile) {
   return { signals, complete, total: signals.length, pct: Math.round((complete / signals.length) * 100) }
 }
 
+
+const average = (values) => {
+  if (!values.length) return null
+  return Math.round(values.reduce((sum, value) => sum + value, 0) / values.length * 10) / 10
+}
+
+const estimateHandicap = (avg18, avg9) => {
+  if (avg18) return Math.max(Math.round((avg18 - 72) * 10) / 10, 0)
+  if (avg9) return Math.max(Math.round(((avg9 * 2) - 72) * 10) / 10, 0)
+  return null
+}
+
 function StatTile({ label, value, sub }) {
   return (
     <div className="bg-white rounded-[16px] border border-gray-100 p-3 shadow-sm">
@@ -255,14 +267,25 @@ export default function Profile({ user }) {
       .eq('user_id', user.id).gte('date', `${new Date().getFullYear()}-01-01`)
       .order('date', { ascending: false })
     if (rounds?.length) {
-      const scores = rounds.map(r => r.score)
+      const rounds9 = rounds.filter(r => Number(r.holes) === 9)
+      const rounds18 = rounds.filter(r => Number(r.holes || 18) === 18)
+      const scores9 = rounds9.map(r => r.score)
+      const scores18 = rounds18.map(r => r.score)
+      const avg9 = average(scores9)
+      const avg18 = average(scores18)
       setStats({
-        count: scores.length,
-        avg: Math.round(scores.reduce((a, b) => a + b, 0) / scores.length * 10) / 10,
-        best: Math.min(...scores),
+        count: rounds.length,
+        count9: rounds9.length,
+        count18: rounds18.length,
+        avg9,
+        avg18,
+        best9: scores9.length ? Math.min(...scores9) : null,
+        best18: scores18.length ? Math.min(...scores18) : null,
+        handicapEstimate: estimateHandicap(avg18, avg9),
       })
       setRecentRounds(rounds.slice(0, 5))
     } else {
+      setStats(null)
       setRecentRounds([])
     }
 
@@ -309,7 +332,7 @@ export default function Profile({ user }) {
   const missingSignals = profileSignals.signals.filter(s => !s.done)
   const reputationReady = reputation?.count >= 3
   const primaryCourse = profile.home_course || profile.location || 'No home course set'
-  const bestKnownScore = stats?.best || profile.avg_score || '—'
+  const bestKnownScore = stats?.best18 || stats?.best9 || profile.avg_score || '—'
 
   return (
     <div className="flex flex-col h-full">
@@ -433,10 +456,17 @@ export default function Profile({ user }) {
             </button>
           </div>
           {stats ? (
-            <div className="grid grid-cols-3 gap-3">
-              <StatTile label="Rounds" value={stats.count} sub="this year" />
-              <StatTile label="Avg score" value={stats.avg} sub="logged" />
-              <StatTile label="Best round" value={stats.best} sub="season" />
+            <div className="space-y-3">
+              <div className="grid grid-cols-3 gap-3">
+                <StatTile label="Rounds" value={stats.count} sub="this year" />
+                <StatTile label="9 avg" value={stats.avg9 || '—'} sub={stats.count9 ? String(stats.count9) + ' logged' : 'none yet'} />
+                <StatTile label="18 avg" value={stats.avg18 || '—'} sub={stats.count18 ? String(stats.count18) + ' logged' : 'none yet'} />
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                <StatTile label="Best 9" value={stats.best9 || '—'} sub="challenge-ready" />
+                <StatTile label="Best 18" value={stats.best18 || '—'} sub="challenge-ready" />
+                <StatTile label="HCP est." value={stats.handicapEstimate ?? '—'} sub="score over par" />
+              </div>
             </div>
           ) : (
             <button onClick={() => setShowLogRound(true)} className="w-full card p-4 flex items-center gap-3 active:opacity-80">
