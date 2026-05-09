@@ -486,17 +486,6 @@ export default function Discover({ user, userProfile, onNavigateTab }) {
   const hasPlayerFilters = filters.handicap !== 'all' || filters.pace !== 'all'
   const hasGameFilters = filters.holes !== 'all' || filters.gamePace !== 'all' || filters.distance !== 'all'
 
-  const onTouchStart = (e) => { touchStartY.current = e.touches[0].clientY }
-  const onTouchEnd = (e) => {
-    const scrollEl = e.currentTarget
-    const pulled = e.changedTouches[0].clientY - touchStartY.current
-    if (pulled > 60 && scrollEl.scrollTop === 0) {
-      setRefreshing(true)
-      const fn = mode === 'players' ? fetchPlayers : fetchGames
-      fn().finally(() => setRefreshing(false))
-    }
-  }
-
   const updateFilters = (fn) => setFilters(f => {
     const next = fn(f)
     localStorage.setItem('discover_filters', JSON.stringify(next))
@@ -511,11 +500,6 @@ export default function Discover({ user, userProfile, onNavigateTab }) {
       )
     }
   }, [])
-
-  useEffect(() => {
-    if (mode === 'players') fetchPlayers()
-    else fetchGames()
-  }, [mode, filters, userLocation])
 
   const fetchPlayers = async () => {
     setLoading(true)
@@ -627,6 +611,24 @@ export default function Discover({ user, userProfile, onNavigateTab }) {
     setLoading(false)
   }
 
+  const onTouchStart = (e) => { touchStartY.current = e.touches[0].clientY }
+  const onTouchEnd = (e) => {
+    const scrollEl = e.currentTarget
+    const pulled = e.changedTouches[0].clientY - touchStartY.current
+    if (pulled > 60 && scrollEl.scrollTop === 0) {
+      setRefreshing(true)
+      const fn = mode === 'players' ? fetchPlayers : fetchGames
+      fn().finally(() => setRefreshing(false))
+    }
+  }
+
+  useEffect(() => {
+    Promise.resolve().then(() => {
+      if (mode === 'players') fetchPlayers()
+      else fetchGames()
+    })
+  }, [mode, filters, userLocation])
+
   const handleRequest = async (game) => {
     setRequestStatus(s => ({ ...s, [game.id]: 'sending' }))
     const { data: existing, error: existingError } = await supabase
@@ -718,6 +720,9 @@ export default function Discover({ user, userProfile, onNavigateTab }) {
         delete next[game.id]
         return next
       })
+      showToast('Request cancelled.', 'success')
+    } else {
+      showToast(`Could not cancel request: ${error.message}`)
     }
   }
 
@@ -733,12 +738,22 @@ export default function Discover({ user, userProfile, onNavigateTab }) {
       user_id: user.id,
       content: `📢 ${firstName} has withdrawn — a spot is now open.`,
     })
-    await supabase.from('round_requests').delete()
+    const { error: requestError } = await supabase.from('round_requests').delete()
       .eq('listing_id', game.id).eq('requester_id', user.id)
-    const newFilled = Math.max(0, game.spots_filled - 1)
-    await supabase.from('round_listings')
+    if (requestError) {
+      showToast(`Could not withdraw: ${requestError.message}`)
+      setRequestStatus(s => ({ ...s, [game.id]: 'accepted' }))
+      return
+    }
+    const newFilled = Math.max(1, Number(game.spots_filled || 1) - 1)
+    const { error: listingError } = await supabase.from('round_listings')
       .update({ spots_filled: newFilled, is_active: newFilled < game.spots_total })
       .eq('id', game.id)
+    if (listingError) {
+      showToast(`Withdrawn, but spot count failed: ${listingError.message}`)
+    } else {
+      showToast('You withdrew from the game.', 'success')
+    }
     // Notify host that a spot opened up
     const date = new Date(game.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
     supabase.functions.invoke('send-push', {

@@ -220,47 +220,58 @@ export default function Activity({ user }) {
 
   const handleAccept = async (item) => {
     setActingId(item.id)
-    const { data: req } = await supabase
-      .from('round_requests')
-      .select('requester_id')
-      .eq('id', item.requestId)
+    const { data: listing, error: listingLoadError } = await supabase
+      .from('round_listings')
+      .select('spots_total, spots_filled, course_name, date, tee_time, is_active')
+      .eq('id', item.listingId)
       .single()
 
-    const { error } = await supabase
-      .from('round_requests')
-      .update({ status: 'accepted' })
-      .eq('id', item.requestId)
-
-    if (error) {
-      showToast('Failed to accept request.')
+    if (listingLoadError || !listing) {
+      showToast('Could not load this game.')
       setActingId(null)
       return
     }
 
-    const { data: listing } = await supabase
-      .from('round_listings')
-      .select('spots_total, spots_filled, course_name, date, tee_time')
-      .eq('id', item.listingId)
+    if (!listing.is_active || Number(listing.spots_filled || 0) >= Number(listing.spots_total || 0)) {
+      showToast('This game is already full.')
+      setActingId(null)
+      fetchActivity()
+      return
+    }
+
+    const { data: req, error } = await supabase
+      .from('round_requests')
+      .update({ status: 'accepted' })
+      .eq('id', item.requestId)
+      .eq('status', 'pending')
+      .select('requester_id')
       .single()
 
-    if (listing) {
-      const newFilled = (listing.spots_filled || 0) + 1
-      const isFull = newFilled >= listing.spots_total
-      await supabase
-        .from('round_listings')
-        .update({ spots_filled: newFilled, ...(isFull && { is_active: false }) })
-        .eq('id', item.listingId)
+    if (error) {
+      showToast('This request was already handled.')
+      setActingId(null)
+      fetchActivity()
+      return
+    }
 
-      if (req?.requester_id) {
-        const date = new Date(listing.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
-        supabase.functions.invoke('send-push', {
-          body: {
-            user_id: req.requester_id,
-            title: "You're in! Request accepted ✅",
-            body: `${listing.course_name} · ${date}${listing.tee_time ? ` · ${listing.tee_time.slice(0, 5)}` : ''}`,
-          },
-        })
-      }
+    const newFilled = Number(listing.spots_filled || 0) + 1
+    const isFull = newFilled >= Number(listing.spots_total || 0)
+    const { error: listingError } = await supabase
+      .from('round_listings')
+      .update({ spots_filled: newFilled, ...(isFull && { is_active: false }) })
+      .eq('id', item.listingId)
+
+    if (listingError) showToast(`Accepted, but game count failed: ${listingError.message}`)
+
+    if (req?.requester_id) {
+      const date = new Date(listing.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+      supabase.functions.invoke('send-push', {
+        body: {
+          user_id: req.requester_id,
+          title: "You're in! Request accepted ✅",
+          body: `${listing.course_name} · ${date}${listing.tee_time ? ` · ${listing.tee_time.slice(0, 5)}` : ''}`,
+        },
+      })
     }
 
     showToast('Request accepted.', 'success')
