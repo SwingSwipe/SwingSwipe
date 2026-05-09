@@ -7,7 +7,7 @@ const CURRENT_SEASON = new Date().getFullYear()
 
 function LogRoundModal({ userId, friends, onClose, onLogged }) {
   const [form, setForm] = useState({
-    course_name: '', date: '', score: '', playing_with: '', notes: '',
+    course_name: '', date: '', score: '', holes: '18', playing_with: '', notes: '',
     wager_type: '', wager_amount: '', wager_opponent: '', wager_result: '',
   })
   const [saving, setSaving] = useState(false)
@@ -23,6 +23,7 @@ function LogRoundModal({ userId, friends, onClose, onLogged }) {
       course_name: form.course_name,
       date: form.date,
       score: parseInt(form.score),
+      holes: parseInt(form.holes),
       playing_with: form.playing_with || null,
       notes: form.notes || null,
       wager_type: showWager ? (form.wager_type || null) : null,
@@ -64,6 +65,16 @@ function LogRoundModal({ userId, friends, onClose, onLogged }) {
             <div>
               <label className="text-xs text-gray-500 mb-1 block">Score</label>
               <input className="input-field" type="number" placeholder="88" value={form.score} onChange={e => set('score', e.target.value)} />
+            </div>
+          </div>
+
+          <div>
+            <label className="text-xs text-gray-500 mb-1.5 block">Holes</label>
+            <div className="flex gap-2">
+              {[['9', '9 holes'], ['18', '18 holes']].map(([v, l]) => (
+                <button key={v} onClick={() => set('holes', v)}
+                  className={`pill flex-1 py-1.5 ${form.holes === v ? 'pill-active' : 'pill-inactive'}`}>{l}</button>
+              ))}
             </div>
           </div>
 

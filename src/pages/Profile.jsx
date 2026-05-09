@@ -11,18 +11,29 @@ function LogRoundModal({ userId, onClose, onSaved }) {
   const today = new Date().toISOString().split('T')[0]
   const [form, setForm] = useState({ course: '', date: today, score: '', holes: '18' })
   const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
 
   const save = async () => {
     if (!form.course || !form.date || !form.score) return
     setSaving(true)
-    await supabase.from('round_logs').insert({
+    setError('')
+    const { error: saveError } = await supabase.from('round_logs').insert({
       user_id: userId,
-      course: form.course,
+      course_name: form.course,
       date: form.date,
       score: parseInt(form.score),
       holes: parseInt(form.holes),
     })
+
+    if (saveError) {
+      setError(`Could not save round: ${saveError.message}`)
+      showToast(`Could not save round: ${saveError.message}`)
+      setSaving(false)
+      return
+    }
+
+    showToast('Round logged.', 'success')
     setSaving(false)
     onSaved()
     onClose()
@@ -57,6 +68,7 @@ function LogRoundModal({ userId, onClose, onSaved }) {
             ))}
           </div>
         </div>
+        {error && <p className="text-xs text-red-500">{error}</p>}
         <button onClick={save} className="btn-primary" disabled={saving || !form.course || !form.score}>
           {saving ? 'Saving…' : 'Save round'}
         </button>
@@ -239,7 +251,7 @@ export default function Profile({ user }) {
     setProfile(prof)
 
     // Round stats + recent history
-    const { data: rounds } = await supabase.from('round_logs').select('id, score, course, date, holes')
+    const { data: rounds } = await supabase.from('round_logs').select('id, score, course_name, date, holes')
       .eq('user_id', user.id).gte('date', `${new Date().getFullYear()}-01-01`)
       .order('date', { ascending: false })
     if (rounds?.length) {
@@ -503,7 +515,7 @@ export default function Profile({ user }) {
                   <div className="flex items-center gap-3 flex-1 min-w-0">
                     <div className="w-10 h-10 rounded-[12px] bg-[#1D9E75]/10 flex items-center justify-center text-lg shrink-0">⛳</div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-black text-gray-800 truncate max-w-[190px]">{r.course}</p>
+                      <p className="text-sm font-black text-gray-800 truncate max-w-[190px]">{r.course_name || 'Golf round'}</p>
                       <p className="text-xs text-gray-400 mt-0.5">
                         {new Date(r.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                         {r.holes && ` · ${r.holes} holes`}
