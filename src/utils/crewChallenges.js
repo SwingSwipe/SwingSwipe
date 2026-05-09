@@ -45,6 +45,72 @@ const isThisWeek = (date, today) => {
   return roundDate >= start && roundDate < end
 }
 
+const hasScore = (round) => Number.isFinite(Number(round?.score))
+
+export const roundQualifiesForChallenge = ({ challenge, round, today = new Date() }) => {
+  if (!challenge || !round || !hasScore(round) || !isThisWeek(round.date, today)) return false
+
+  const type = challenge.challenge_type || 'lowest_9'
+  if (type === 'post_next_round' || type === 'most_rounds') return true
+
+  const targetHoles = type === 'lowest_9' ? 9 : 18
+  return Number(round.holes || targetHoles) === targetHoles
+}
+
+export const getRoundChallengeMatches = ({ challenges = [], round, today = new Date() }) => (
+  challenges
+    .filter(challenge => roundQualifiesForChallenge({ challenge, round, today }))
+    .map(challenge => ({
+      challenge,
+      title: getChallengeTitle(challenge),
+      crewName: challenge.crewName || challenge.crews?.name || 'your crew',
+    }))
+)
+
+export const formatRoundChallengeToast = (matches = []) => {
+  if (!matches.length) return 'Round logged.'
+  const [first, second] = matches
+  if (!second) return `Round logged. Counts toward ${first.title} in ${first.crewName}.`
+  return `Round logged. Counts toward ${first.title} in ${first.crewName} and ${matches.length - 1} more.`
+}
+
+export const fetchActiveChallengeMatchesForRound = async (supabase, userId, round, today = new Date()) => {
+  if (!userId || !round) return []
+
+  const { data: memberships, error: membershipError } = await supabase
+    .from('crew_members')
+    .select('crew_id, crews(name)')
+    .eq('user_id', userId)
+
+  if (membershipError || !memberships?.length) return []
+
+  const crewIds = [...new Set(memberships.map(row => row.crew_id).filter(Boolean))]
+  if (!crewIds.length) return []
+
+  const crewNames = {}
+  memberships.forEach(row => {
+    const crew = Array.isArray(row.crews) ? row.crews[0] : row.crews
+    crewNames[row.crew_id] = crew?.name || 'your crew'
+  })
+
+  const { data: challenges, error: challengeError } = await supabase
+    .from('crew_challenges')
+    .select('id, crew_id, title, challenge_type, status, created_at')
+    .in('crew_id', crewIds)
+    .eq('status', 'active')
+
+  if (challengeError || !challenges?.length) return []
+
+  return getRoundChallengeMatches({
+    challenges: challenges.map(challenge => ({
+      ...challenge,
+      crewName: crewNames[challenge.crew_id] || 'your crew',
+    })),
+    round,
+    today,
+  })
+}
+
 const getMemberName = (member) => member?.profile?.name || member?.profiles?.name || 'Golfer'
 
 const estimateHandicap = (member) => {

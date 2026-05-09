@@ -6,8 +6,11 @@ import {
   calculateChallengeStandings,
   calculateCrewPointTotals,
   calculatePointAwards,
+  formatRoundChallengeToast,
   getChallengeTypeLabel,
+  getRoundChallengeMatches,
   getChallengeTitle,
+  roundQualifiesForChallenge,
 } from './crewChallenges.js'
 
 test('crew challenge presets include the first weekly set', () => {
@@ -109,4 +112,50 @@ test('lowest 9 standings ignore 18-hole rounds', () => {
   })
 
   assert.deepEqual(standings, [])
+})
+
+test('round challenge match helper respects 9 and 18 hole challenge rules', () => {
+  const today = new Date('2026-05-06T12:00:00')
+  assert.equal(
+    roundQualifiesForChallenge({
+      challenge: { challenge_type: 'lowest_9' },
+      round: { score: 41, holes: 9, date: '2026-05-06' },
+      today,
+    }),
+    true,
+  )
+  assert.equal(
+    roundQualifiesForChallenge({
+      challenge: { challenge_type: 'lowest_9' },
+      round: { score: 82, holes: 18, date: '2026-05-06' },
+      today,
+    }),
+    false,
+  )
+  assert.equal(
+    roundQualifiesForChallenge({
+      challenge: { challenge_type: 'best_net_score' },
+      round: { score: 82, holes: 18, date: '2026-05-06' },
+      today,
+    }),
+    true,
+  )
+})
+
+test('round challenge match helper formats the round logged confirmation', () => {
+  const matches = getRoundChallengeMatches({
+    challenges: [
+      { challenge_type: 'lowest_9', title: '', crewName: 'Saturday Crew' },
+      { challenge_type: 'most_rounds', title: 'Grind week', crewName: 'Saturday Crew' },
+    ],
+    round: { score: 41, holes: 9, date: '2026-05-06' },
+    today: new Date('2026-05-06T12:00:00'),
+  })
+
+  assert.deepEqual(matches.map(match => [match.title, match.crewName]), [
+    ['Lowest 9 this week', 'Saturday Crew'],
+    ['Grind week', 'Saturday Crew'],
+  ])
+  assert.equal(formatRoundChallengeToast(matches), 'Round logged. Counts toward Lowest 9 this week in Saturday Crew and 1 more.')
+  assert.equal(formatRoundChallengeToast([]), 'Round logged.')
 })

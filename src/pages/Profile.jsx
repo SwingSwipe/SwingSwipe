@@ -6,6 +6,7 @@ import Modal from '../components/Modal'
 import CourseInput from '../components/CourseInput'
 import ConfirmSheet from '../components/ConfirmSheet'
 import { showToast } from '../components/Toast'
+import { fetchActiveChallengeMatchesForRound, formatRoundChallengeToast } from '../utils/crewChallenges'
 
 function LogRoundModal({ userId, onClose, onSaved }) {
   const today = new Date().toISOString().split('T')[0]
@@ -18,13 +19,18 @@ function LogRoundModal({ userId, onClose, onSaved }) {
     if (!form.course || !form.date || !form.score) return
     setSaving(true)
     setError('')
-    const { error: saveError } = await supabase.from('round_logs').insert({
+    const roundPayload = {
       user_id: userId,
       course_name: form.course,
       date: form.date,
       score: parseInt(form.score),
       holes: parseInt(form.holes),
-    })
+    }
+    const { data: savedRound, error: saveError } = await supabase
+      .from('round_logs')
+      .insert(roundPayload)
+      .select('id, user_id, score, date, holes')
+      .single()
 
     if (saveError) {
       setError(`Could not save round: ${saveError.message}`)
@@ -33,7 +39,8 @@ function LogRoundModal({ userId, onClose, onSaved }) {
       return
     }
 
-    showToast('Round logged.', 'success')
+    const matches = await fetchActiveChallengeMatchesForRound(supabase, userId, savedRound || roundPayload)
+    showToast(formatRoundChallengeToast(matches), 'success')
     setSaving(false)
     onSaved()
     onClose()
@@ -255,8 +262,6 @@ export default function Profile({ user }) {
   const [showLogRound, setShowLogRound] = useState(false)
   const [confirmRoundDelete, setConfirmRoundDelete] = useState(null)
 
-  useEffect(() => { fetchProfile() }, [])
-
   const fetchProfile = async () => {
     setLoading(true)
     const { data: prof } = await supabase.from('profiles').select('*').eq('id', user.id).single()
@@ -301,6 +306,10 @@ export default function Profile({ user }) {
     }
     setLoading(false)
   }
+
+  useEffect(() => {
+    Promise.resolve().then(fetchProfile)
+  }, [])
 
   const handleSignOut = async () => {
     await supabase.auth.signOut()

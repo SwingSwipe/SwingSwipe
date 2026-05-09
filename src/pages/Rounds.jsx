@@ -2,6 +2,8 @@ import Modal from '../components/Modal'
 import { useState, useEffect } from 'react'
 import { supabase } from '../supabase'
 import CourseInput from '../components/CourseInput'
+import { showToast } from '../components/Toast'
+import { fetchActiveChallengeMatchesForRound, formatRoundChallengeToast } from '../utils/crewChallenges'
 
 const CURRENT_SEASON = new Date().getFullYear()
 
@@ -18,7 +20,7 @@ function LogRoundModal({ userId, friends, onClose, onLogged }) {
   const submit = async () => {
     if (!form.course_name || !form.date || !form.score) return
     setSaving(true)
-    const { error } = await supabase.from('round_logs').insert({
+    const roundPayload = {
       user_id: userId,
       course_name: form.course_name,
       date: form.date,
@@ -30,7 +32,12 @@ function LogRoundModal({ userId, friends, onClose, onLogged }) {
       wager_amount: showWager && form.wager_amount ? parseFloat(form.wager_amount) : null,
       wager_opponent: showWager ? (form.wager_opponent || null) : null,
       wager_result: showWager ? (form.wager_result || null) : null,
-    })
+    }
+    const { data: savedRound, error } = await supabase
+      .from('round_logs')
+      .insert(roundPayload)
+      .select('id, user_id, score, date, holes')
+      .single()
 
     if (!error) {
       const { data: allRounds } = await supabase
@@ -39,8 +46,12 @@ function LogRoundModal({ userId, friends, onClose, onLogged }) {
         const avg = allRounds.reduce((s, r) => s + r.score, 0) / allRounds.length
         await supabase.from('profiles').update({ avg_score: Math.round(avg * 10) / 10 }).eq('id', userId)
       }
+      const matches = await fetchActiveChallengeMatchesForRound(supabase, userId, savedRound || roundPayload)
+      showToast(formatRoundChallengeToast(matches), 'success')
       onLogged()
       onClose()
+    } else {
+      showToast(`Could not save round: ${error.message}`)
     }
     setSaving(false)
   }
@@ -197,7 +208,12 @@ export default function Rounds({ user }) {
     setFriendMap(map)
   }
 
-  useEffect(() => { fetchRounds(); fetchFriends() }, [])
+  useEffect(() => {
+    Promise.resolve().then(() => {
+      fetchRounds()
+      fetchFriends()
+    })
+  }, [])
 
   const stats = (() => {
     if (!rounds.length) return null
