@@ -10,6 +10,7 @@ import { showToast } from '../components/Toast'
 import {
   CHALLENGE_TYPE_OPTIONS,
   calculateChallengeStandings,
+  calculateCrewPointTotals,
   calculatePointAwards,
   getChallengeTitle,
   getChallengeTypeLabel,
@@ -741,7 +742,7 @@ function CrewManageModal({ crew, isCreator, onClose, onInvite, onMembers, onPin,
   )
 }
 
-function CrewMembersModal({ crew, members, currentUserId, onClose, onProfileTap }) {
+function CrewMembersModal({ crew, members, currentUserId, pointTotals = {}, onClose, onProfileTap }) {
   return (
     <Modal>
       <>
@@ -763,6 +764,7 @@ function CrewMembersModal({ crew, members, currentUserId, onClose, onProfileTap 
               const profile = member.profile
               const isCreator = member.user_id === crew.created_by
               const isMe = member.user_id === currentUserId
+              const points = pointTotals[member.user_id] || 0
               return (
                 <button
                   key={member.user_id}
@@ -774,7 +776,10 @@ function CrewMembersModal({ crew, members, currentUserId, onClose, onProfileTap 
                     <p className="font-black text-sm text-gray-900 truncate">{profile?.name || 'Golfer'}{isMe ? ' · You' : ''}</p>
                     <p className="text-xs text-gray-400 truncate">{profile?.home_course || 'No home course'}</p>
                   </div>
-                  {isCreator && <span className="text-[10px] font-black text-[#064e35] bg-[#e8f5ef] rounded-full px-2 py-1">Captain</span>}
+                  <div className="flex flex-col items-end gap-1">
+                    {points > 0 && <span className="text-[10px] font-black text-[#064e35] bg-[#e8f5ef] rounded-full px-2 py-1">{points} pt{points !== 1 ? 's' : ''}</span>}
+                    {isCreator && <span className="text-[10px] font-black text-[#064e35] bg-[#e8f5ef] rounded-full px-2 py-1">Captain</span>}
+                  </div>
                 </button>
               )
             })}
@@ -917,11 +922,12 @@ export default function Crew({ user, userProfile, onFriendRequestsChange }) {
         .from('crew_challenge_points')
         .select('crew_id, user_id, points')
         .in('crew_id', crewList.map(c => c.id))
-      const totalsByCrew = {}
-      pointRows?.forEach(row => {
-        totalsByCrew[row.crew_id] = (totalsByCrew[row.crew_id] || 0) + (row.points || 0)
-      })
-      crewList = crewList.map(c => ({ ...c, challengePointsTotal: totalsByCrew[c.id] || 0 }))
+      const totalsByCrew = calculateCrewPointTotals(pointRows || [])
+      crewList = crewList.map(c => ({
+        ...c,
+        challengePointsTotal: totalsByCrew[c.id]?.total || 0,
+        challengePointTotals: totalsByCrew[c.id]?.byUser || {},
+      }))
     }
 
     setCrews(crewList)
@@ -1492,7 +1498,10 @@ export default function Crew({ user, userProfile, onFriendRequestsChange }) {
                             <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-xs font-black">?</div>
                           )}
                         </div>
-                        <span className="text-xs font-black text-white">Members →</span>
+                        <div className="text-right">
+                          <span className="block text-xs font-black text-white">Members →</span>
+                          {crew.challengePointsTotal > 0 && <span className="block text-[10px] font-black text-white/70">{crew.challengePointsTotal} pts</span>}
+                        </div>
                       </button>
                       {crew.activeChallenge && (<div className="mb-2"><ChallengeCard challenge={crew.activeChallenge} standings={crew.challengeStandings || []} pointsTotal={crew.challengePointsTotal || 0} compact /></div>)}
                       {crew.pinnedGame && (<div className="mb-2"><PinnedGameCard game={crew.pinnedGame} compact /></div>)}
@@ -1607,6 +1616,7 @@ export default function Crew({ user, userProfile, onFriendRequestsChange }) {
           crew={viewingCrewMembers}
           members={crewMembers[viewingCrewMembers.id] || []}
           currentUserId={user.id}
+          pointTotals={viewingCrewMembers.challengePointTotals || {}}
           onClose={() => setViewingCrewMembers(null)}
           onProfileTap={id => {
             setViewingCrewMembers(null)

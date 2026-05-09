@@ -4,6 +4,7 @@ import assert from 'node:assert/strict'
 import {
   CHALLENGE_TYPE_OPTIONS,
   calculateChallengeStandings,
+  calculateCrewPointTotals,
   calculatePointAwards,
   getChallengeTypeLabel,
   getChallengeTitle,
@@ -82,4 +83,17 @@ test('best net score standings subtract estimated handicap from 18-hole scores',
     ['u2', 1, 69, 'Net 69'],
     ['u1', 2, 76, 'Net 76'],
   ])
+})
+
+
+test('crew point totals aggregate by crew and user', () => {
+  assert.deepEqual(calculateCrewPointTotals([
+    { crew_id: 'c1', user_id: 'u1', points: 6 },
+    { crew_id: 'c1', user_id: 'u1', points: 4 },
+    { crew_id: 'c1', user_id: 'u2', points: 1 },
+    { crew_id: 'c2', user_id: 'u1', points: 2 },
+  ]), {
+    c1: { total: 11, byUser: { u1: 10, u2: 1 } },
+    c2: { total: 2, byUser: { u1: 2 } },
+  })
 })

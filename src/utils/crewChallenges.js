@@ -164,3 +164,15 @@ export const calculatePointAwards = (standings = []) => (
     })
     .filter(row => row.points > 0)
 )
+
+
+export const calculateCrewPointTotals = (pointRows = []) => (
+  pointRows.reduce((totals, row) => {
+    if (!row?.crew_id || !row?.user_id) return totals
+    const points = Number(row.points) || 0
+    if (!totals[row.crew_id]) totals[row.crew_id] = { total: 0, byUser: {} }
+    totals[row.crew_id].total += points
+    totals[row.crew_id].byUser[row.user_id] = (totals[row.crew_id].byUser[row.user_id] || 0) + points
+    return totals
+  }, {})
+)
