@@ -133,7 +133,7 @@ export default function Activity({ user }) {
               .limit(30)
           : Promise.resolve({ data: [] }),
         supabase.from('round_requests')
-          .select('id, status, created_at, listing_id, invited_by, round_listings(course_name, date, profiles(name))')
+          .select('id, status, created_at, listing_id, invited_by, round_listings(id, course_name, date, tee_time, spots_total, spots_filled, is_active, profiles(name))')
           .eq('requester_id', user.id)
           .order('created_at', { ascending: false })
           .limit(30),
@@ -186,7 +186,16 @@ export default function Activity({ user }) {
         const course = r.round_listings?.course_name || 'a game'
         const hostName = r.round_listings?.profiles?.name?.split(' ')[0] || 'the host'
         if (r.status === 'invited') {
-          events.push({ id: r.id + '_inv', ts: r.created_at, emoji: '🎉', text: `You were invited to play at ${course}`, type: 'invited' })
+          events.push({
+            id: r.id + '_inv',
+            requestId: r.id,
+            listingId: r.listing_id,
+            listing: r.round_listings,
+            ts: r.created_at,
+            emoji: '🎉',
+            text: `You were invited to play at ${course}`,
+            type: 'invited',
+          })
         } else if (r.status === 'pending') {
           events.push({ id: r.id + '_out', ts: r.created_at, emoji: '⏳', text: `Waiting on ${hostName} for your request to join ${course}`, type: 'outbound_pending' })
         } else if (r.status === 'accepted') {
@@ -314,6 +323,68 @@ export default function Activity({ user }) {
     fetchActivity()
   }
 
+  const handleAcceptInvite = async (item) => {
+    setActingId(item.id)
+    const game = item.listing
+
+    if (!game?.is_active || Number(game?.spots_filled || 0) >= Number(game?.spots_total || 0)) {
+      showToast('That game is already full.')
+      setActingId(null)
+      fetchActivity()
+      return
+    }
+
+    const { error: requestError } = await supabase
+      .from('round_requests')
+      .update({ status: 'accepted' })
+      .eq('id', item.requestId)
+      .eq('status', 'invited')
+      .select('id')
+      .single()
+
+    if (requestError) {
+      showToast('This invite was already handled.')
+      setActingId(null)
+      fetchActivity()
+      return
+    }
+
+    const newFilled = Number(game.spots_filled || 1) + 1
+    const isFull = newFilled >= Number(game.spots_total || 0)
+    const { error: listingError } = await supabase
+      .from('round_listings')
+      .update({ spots_filled: newFilled, ...(isFull && { is_active: false }) })
+      .eq('id', item.listingId)
+
+    if (listingError) {
+      showToast(`Invite accepted, but game count failed: ${listingError.message}`)
+    } else {
+      showToast('Invite accepted.', 'success')
+    }
+
+    setActingId(null)
+    fetchActivity()
+  }
+
+  const handleDeclineInvite = async (item) => {
+    setActingId(item.id)
+    const { error } = await supabase
+      .from('round_requests')
+      .delete()
+      .eq('id', item.requestId)
+      .eq('status', 'invited')
+
+    if (error) {
+      showToast(`Could not decline invite: ${error.message}`)
+      setActingId(null)
+      return
+    }
+
+    showToast('Invite declined.', 'success')
+    setActingId(null)
+    fetchActivity()
+  }
+
   const dotColor = (type) => {
     if (type.includes('accepted') || type === 'invited') return 'bg-green-400'
     if (type.includes('declined')) return 'bg-red-400'
@@ -322,7 +393,8 @@ export default function Activity({ user }) {
   }
 
   const pendingItems = items.filter(item => item.type === 'inbound_pending')
-  const updateItems = items.filter(item => item.type !== 'inbound_pending')
+  const inviteItems = items.filter(item => item.type === 'invited')
+  const updateItems = items.filter(item => item.type !== 'inbound_pending' && item.type !== 'invited')
 
   return (
     <div className="flex flex-col h-full">
@@ -407,6 +479,46 @@ export default function Activity({ user }) {
                         className="h-10 rounded-[12px] bg-[#1D9E75] text-white text-sm font-black active:scale-[0.98] disabled:opacity-60 transition-transform"
                       >
                         {actingId === item.id ? 'Saving…' : 'Accept'}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {inviteItems.length > 0 && (
+              <div className="mb-5">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="section-label">Invites to answer</p>
+                  <span className="text-[10px] font-black text-[#1D9E75] bg-[#1D9E75]/10 px-2 py-1 rounded-full">{inviteItems.length}</span>
+                </div>
+                {inviteItems.map(item => (
+                  <div key={item.id} className="bg-white border border-[#1D9E75]/15 rounded-[18px] p-4 shadow-sm mb-3">
+                    <div className="flex items-start gap-3">
+                      <div className="w-11 h-11 bg-[#1D9E75]/10 rounded-full flex items-center justify-center text-xl shrink-0">{item.emoji}</div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-black text-gray-900 leading-snug">{item.text}</p>
+                        <p className="text-xs text-gray-400 mt-0.5">
+                          {timeAgo(item.ts)}
+                          {item.listing?.date && ` · ${new Date(item.listing.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}`}
+                          {item.listing?.tee_time && ` · ${item.listing.tee_time.slice(0, 5)}`}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 mt-4">
+                      <button
+                        onClick={() => handleDeclineInvite(item)}
+                        disabled={actingId === item.id}
+                        className="h-10 rounded-[12px] bg-gray-100 text-gray-500 text-sm font-black active:scale-[0.98] disabled:opacity-60 transition-transform"
+                      >
+                        Decline
+                      </button>
+                      <button
+                        onClick={() => handleAcceptInvite(item)}
+                        disabled={actingId === item.id}
+                        className="h-10 rounded-[12px] bg-[#1D9E75] text-white text-sm font-black active:scale-[0.98] disabled:opacity-60 transition-transform"
+                      >
+                        {actingId === item.id ? 'Saving…' : 'Accept invite'}
                       </button>
                     </div>
                   </div>
