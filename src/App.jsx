@@ -134,6 +134,7 @@ export default function App() {
   const [isPasswordRecovery, setIsPasswordRecovery] = useState(false)
   const [installPrompt, setInstallPrompt] = useState(null)
   const [showInstallBanner, setShowInstallBanner] = useState(false)
+  const [showNotificationBanner, setShowNotificationBanner] = useState(false)
   const { toast, show } = useToast()
 
   useEffect(() => {
@@ -180,29 +181,56 @@ export default function App() {
     setShowInstallBanner(false)
   }
 
-  // Request notification permission and save push subscription
+  const setupPushNotifications = async (askPermission = false) => {
+    if (!user || !('Notification' in window) || !('serviceWorker' in navigator)) return false
+    try {
+      let permission = Notification.permission
+      if (permission === 'default' && askPermission) permission = await Notification.requestPermission()
+      if (permission !== 'granted') return false
+      if (!import.meta.env.VITE_VAPID_PUBLIC_KEY) return false
+
+      const reg = await navigator.serviceWorker.ready
+      let sub = await reg.pushManager.getSubscription()
+      if (!sub) {
+        sub = await reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: import.meta.env.VITE_VAPID_PUBLIC_KEY,
+        })
+      }
+      await supabase.from('push_subscriptions').upsert(
+        { user_id: user.id, subscription: sub.toJSON() },
+        { onConflict: 'user_id' }
+      )
+      return true
+    } catch {
+      return false
+    }
+  }
+
+  const enableNotifications = async () => {
+    const enabled = await setupPushNotifications(true)
+    setShowNotificationBanner(false)
+    localStorage.setItem('push_notifications_prompted', '1')
+    show(enabled ? 'Notifications enabled.' : 'Notifications are blocked or unavailable on this device.', enabled ? 'success' : 'info')
+  }
+
+  const dismissNotifications = () => {
+    localStorage.setItem('push_notifications_prompted', '1')
+    setShowNotificationBanner(false)
+  }
+
+  // Save push subscription if already allowed; otherwise show a user-triggered prompt.
   useEffect(() => {
     if (!user || !('Notification' in window) || !('serviceWorker' in navigator)) return
-    const setup = async () => {
-      let permission = Notification.permission
-      if (permission === 'default') permission = await Notification.requestPermission()
-      if (permission !== 'granted') return
-      try {
-        const reg = await navigator.serviceWorker.ready
-        let sub = await reg.pushManager.getSubscription()
-        if (!sub) {
-          sub = await reg.pushManager.subscribe({
-            userVisibleOnly: true,
-            applicationServerKey: import.meta.env.VITE_VAPID_PUBLIC_KEY,
-          })
-        }
-        await supabase.from('push_subscriptions').upsert(
-          { user_id: user.id, subscription: sub.toJSON() },
-          { onConflict: 'user_id' }
-        )
-      } catch { /* push not supported or blocked */ }
+    if (Notification.permission === 'granted') {
+      setupPushNotifications(false)
+      return
     }
-    setup()
+    if (Notification.permission !== 'default') return
+    if (localStorage.getItem('push_notifications_prompted')) return
+
+    const timer = setTimeout(() => setShowNotificationBanner(true), 12000)
+    return () => clearTimeout(timer)
   }, [user])
 
   const sendPush = (userId, title, body) => {
@@ -459,6 +487,28 @@ export default function App() {
                 </>
               )}
               <button onClick={dismissInstall} className="w-full text-center text-sm text-gray-400 py-2">
+                Not now
+              </button>
+            </div>
+          </div>
+        )}
+        {showNotificationBanner && !showInstallBanner && (
+          <div className="fixed inset-0 z-[75] flex flex-col justify-end">
+            <div className="absolute inset-0 bg-black/40" onClick={dismissNotifications} />
+            <div className="relative bg-white rounded-t-[24px] p-6 z-10">
+              <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-5" />
+              <div className="flex items-center gap-4 mb-4">
+                <div className="w-14 h-14 bg-[#1D9E75] rounded-[16px] flex items-center justify-center text-3xl shadow-lg">🔔</div>
+                <div>
+                  <p className="font-black text-lg">Stay in the loop</p>
+                  <p className="text-sm text-gray-400">requests, invites, and tee time nudges</p>
+                </div>
+              </div>
+              <p className="text-sm text-gray-500 mb-5">Turn on notifications so you know when someone wants to join, accepts an invite, or needs a reminder before a round.</p>
+              <button onClick={enableNotifications} className="w-full py-3.5 bg-[#1D9E75] text-white font-bold rounded-[14px] text-base active:opacity-80 mb-2">
+                Enable notifications
+              </button>
+              <button onClick={dismissNotifications} className="w-full text-center text-sm text-gray-400 py-2">
                 Not now
               </button>
             </div>
