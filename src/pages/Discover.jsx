@@ -333,22 +333,76 @@ function InviteToGameModal({ host, invitee, onClose }) {
   const [games, setGames] = useState([])
   const [loading, setLoading] = useState(true)
   const [sent, setSent] = useState({})
+  const [sending, setSending] = useState({})
 
   useEffect(() => {
     supabase.from('round_listings')
       .select('*').eq('host_id', host.id).eq('is_active', true)
       .gte('date', new Date().toISOString().split('T')[0])
       .order('date', { ascending: true })
-      .then(({ data }) => { setGames(data || []); setLoading(false) })
+      .then(({ data }) => {
+        setGames((data || []).filter(game => Number(game.spots_filled || 0) < Number(game.spots_total || 0)))
+        setLoading(false)
+      })
   }, [])
 
   const sendInvite = async (game) => {
-    setSent(s => ({ ...s, [game.id]: true }))
-    await supabase.from('round_requests').insert({
-      listing_id: game.id,
-      requester_id: invitee.id,
+    setSending(s => ({ ...s, [game.id]: true }))
+
+    const { data: existing, error: existingError } = await supabase
+      .from('round_requests')
+      .select('id, status')
+      .eq('listing_id', game.id)
+      .eq('requester_id', invitee.id)
+      .maybeSingle()
+
+    if (existingError) {
+      showToast(`Could not check invite: ${existingError.message}`)
+      setSending(s => ({ ...s, [game.id]: false }))
+      return
+    }
+
+    if (existing?.status === 'accepted') {
+      showToast(`${invitee.name?.split(' ')[0] || 'They'} is already in this game.`)
+      setSent(s => ({ ...s, [game.id]: true }))
+      setSending(s => ({ ...s, [game.id]: false }))
+      return
+    }
+
+    const invitePayload = {
       invited_by: host.id,
       status: 'invited',
+    }
+    const { error } = existing
+      ? await supabase
+          .from('round_requests')
+          .update(invitePayload)
+          .eq('id', existing.id)
+          .in('status', ['pending', 'declined', 'invited'])
+      : await supabase.from('round_requests').insert({
+          listing_id: game.id,
+          requester_id: invitee.id,
+          ...invitePayload,
+        })
+
+    if (error) {
+      showToast(`Could not send invite: ${error.message}`)
+      setSending(s => ({ ...s, [game.id]: false }))
+      return
+    }
+
+    setSent(s => ({ ...s, [game.id]: true }))
+    setSending(s => ({ ...s, [game.id]: false }))
+    showToast(`Invited ${invitee.name?.split(' ')[0] || 'player'}.`, 'success')
+
+    const hostName = host.user_metadata?.name?.split(' ')[0] || 'Someone'
+    const date = new Date(game.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+    supabase.functions.invoke('send-push', {
+      body: {
+        user_id: invitee.id,
+        title: `${hostName} invited you to play ⛳`,
+        body: `${game.course_name} · ${date}${game.tee_time ? ` · ${game.tee_time.slice(0, 5)}` : ''}`,
+      },
     })
   }
 
@@ -365,7 +419,7 @@ function InviteToGameModal({ host, invitee, onClose }) {
           <div className="w-5 h-5 border-2 border-[#1D9E75] border-t-transparent rounded-full animate-spin" />
         </div>
       ) : games.length === 0 ? (
-        <p className="text-center text-sm text-gray-400 py-8">No open games — post one in the Games tab first.</p>
+        <p className="text-center text-sm text-gray-400 py-8">No open games with spots left — post one in the Games tab first.</p>
       ) : (
         games.map(game => (
           <div key={game.id} className="flex items-center justify-between py-3 border-b border-gray-50 last:border-0">
@@ -378,10 +432,10 @@ function InviteToGameModal({ host, invitee, onClose }) {
             </div>
             <button
               onClick={() => sendInvite(game)}
-              disabled={sent[game.id]}
+              disabled={sent[game.id] || sending[game.id]}
               className={`px-4 py-1.5 rounded-[8px] text-sm font-bold transition-all ${sent[game.id] ? 'bg-green-100 text-green-700' : 'bg-[#1D9E75] text-white active:opacity-80'}`}
             >
-              {sent[game.id] ? '✓ Sent' : 'Invite'}
+              {sent[game.id] ? '✓ Sent' : sending[game.id] ? 'Sending…' : 'Invite'}
             </button>
           </div>
         ))
