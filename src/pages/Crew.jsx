@@ -817,8 +817,6 @@ export default function Crew({ user, userProfile, onFriendRequestsChange }) {
   const [search, setSearch] = useState('')
   const [searchResults, setSearchResults] = useState([])
 
-  useEffect(() => { fetchAll() }, [])
-
   const fetchAll = async () => {
     setLoading(true)
     const [crewMemberRes, friendRes, incomingRes, sentRes] = await Promise.all([
@@ -996,6 +994,10 @@ export default function Crew({ user, userProfile, onFriendRequestsChange }) {
     setLoading(false)
   }
 
+  useEffect(() => {
+    Promise.resolve().then(fetchAll)
+  }, [])
+
   const handleSearch = async () => {
     if (!search.trim()) return
     const { data } = await supabase
@@ -1015,6 +1017,7 @@ export default function Crew({ user, userProfile, onFriendRequestsChange }) {
     })
     if (!error) {
       setRequestedListings(s => new Set([...s, listing.id]))
+      showToast('Request sent.', 'success')
       const requesterName = userProfile?.name?.split(' ')[0] || 'Someone'
       const date = new Date(listing.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
       supabase.functions.invoke('send-push', {
@@ -1041,6 +1044,7 @@ export default function Crew({ user, userProfile, onFriendRequestsChange }) {
         next.delete(listing.id)
         return next
       })
+      showToast('Request cancelled.', 'success')
     } else {
       showToast('Could not cancel request. Try again.')
     }
@@ -1061,8 +1065,18 @@ export default function Crew({ user, userProfile, onFriendRequestsChange }) {
   }
 
   const acceptRequest = async (req) => {
-    const { error: acceptError } = await supabase.from('friend_requests').update({ status: 'accepted' }).eq('id', req.id)
-    if (acceptError) { showToast('Could not accept request.'); return }
+    const { error: acceptError } = await supabase
+      .from('friend_requests')
+      .update({ status: 'accepted' })
+      .eq('id', req.id)
+      .eq('status', 'pending')
+      .select('id')
+      .single()
+    if (acceptError) {
+      showToast('This friend request was already handled.')
+      fetchAll()
+      return
+    }
     const { error: friendError } = await supabase.from('friends').insert([
       { user_id: user.id, friend_id: req.from_id },
       { user_id: req.from_id, friend_id: user.id },
@@ -1080,10 +1094,15 @@ export default function Crew({ user, userProfile, onFriendRequestsChange }) {
   }
 
   const declineRequest = async (reqId) => {
-    const { error } = await supabase.from('friend_requests').update({ status: 'declined' }).eq('id', reqId)
+    const { error } = await supabase
+      .from('friend_requests')
+      .update({ status: 'declined' })
+      .eq('id', reqId)
+      .eq('status', 'pending')
     if (error) { showToast('Could not decline request.'); return }
     setIncomingRequests(r => r.filter(x => x.id !== reqId))
     onFriendRequestsChange?.(incomingRequests.length - 1)
+    showToast('Friend request declined.', 'success')
   }
 
   const acceptCrewJoinRequest = async (req) => {
@@ -1091,7 +1110,14 @@ export default function Crew({ user, userProfile, onFriendRequestsChange }) {
       .from('crew_join_requests')
       .update({ status: 'accepted' })
       .eq('id', req.id)
-    if (error) { showToast(`Could not approve crew request: ${error.message}`); return }
+      .eq('status', 'pending')
+      .select('id')
+      .single()
+    if (error) {
+      showToast('This crew request was already handled.')
+      fetchAll()
+      return
+    }
 
     setCrewJoinRequests(r => r.filter(x => x.id !== req.id))
     await logCrewActivity(req.crew_id, user.id, `${req.profile?.name || 'A golfer'} joined the crew`)
@@ -1111,6 +1137,7 @@ export default function Crew({ user, userProfile, onFriendRequestsChange }) {
       .from('crew_join_requests')
       .update({ status: 'declined' })
       .eq('id', req.id)
+      .eq('status', 'pending')
     if (error) { showToast(`Could not decline crew request: ${error.message}`); return }
 
     setCrewJoinRequests(r => r.filter(x => x.id !== req.id))
