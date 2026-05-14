@@ -7,6 +7,7 @@ import CourseInput from '../components/CourseInput'
 import ConfirmSheet from '../components/ConfirmSheet'
 import { showToast } from '../components/Toast'
 import { fetchActiveChallengeMatchesForRound, formatRoundChallengeToast } from '../utils/crewChallenges'
+import { calculateRoundStats, getProfileAverageScore } from '../utils/golfStats'
 
 function LogRoundModal({ userId, onClose, onSaved }) {
   const today = new Date().toISOString().split('T')[0]
@@ -38,6 +39,14 @@ function LogRoundModal({ userId, onClose, onSaved }) {
       setSaving(false)
       return
     }
+
+    const { data: seasonRounds } = await supabase
+      .from('round_logs')
+      .select('score, holes')
+      .eq('user_id', userId)
+      .gte('date', `${new Date().getFullYear()}-01-01`)
+    const profileAverage = getProfileAverageScore(seasonRounds || [])
+    await supabase.from('profiles').update({ avg_score: profileAverage }).eq('id', userId)
 
     const matches = await fetchActiveChallengeMatchesForRound(supabase, userId, savedRound || roundPayload)
     showToast(formatRoundChallengeToast(matches), 'success')
@@ -112,17 +121,6 @@ function getProfileSignals(profile) {
   return { signals, complete, total: signals.length, pct: Math.round((complete / signals.length) * 100) }
 }
 
-
-const average = (values) => {
-  if (!values.length) return null
-  return Math.round(values.reduce((sum, value) => sum + value, 0) / values.length * 10) / 10
-}
-
-const estimateHandicap = (avg18, avg9) => {
-  if (avg18) return Math.max(Math.round((avg18 - 72) * 10) / 10, 0)
-  if (avg9) return Math.max(Math.round(((avg9 * 2) - 72) * 10) / 10, 0)
-  return null
-}
 
 function StatTile({ label, value, sub }) {
   return (
@@ -272,21 +270,9 @@ export default function Profile({ user }) {
       .eq('user_id', user.id).gte('date', `${new Date().getFullYear()}-01-01`)
       .order('date', { ascending: false })
     if (rounds?.length) {
-      const rounds9 = rounds.filter(r => Number(r.holes) === 9)
-      const rounds18 = rounds.filter(r => Number(r.holes || 18) === 18)
-      const scores9 = rounds9.map(r => r.score)
-      const scores18 = rounds18.map(r => r.score)
-      const avg9 = average(scores9)
-      const avg18 = average(scores18)
+      const roundStats = calculateRoundStats(rounds)
       setStats({
-        count: rounds.length,
-        count9: rounds9.length,
-        count18: rounds18.length,
-        avg9,
-        avg18,
-        best9: scores9.length ? Math.min(...scores9) : null,
-        best18: scores18.length ? Math.min(...scores18) : null,
-        handicapEstimate: estimateHandicap(avg18, avg9),
+        ...roundStats,
       })
       setRecentRounds(rounds.slice(0, 5))
     } else {

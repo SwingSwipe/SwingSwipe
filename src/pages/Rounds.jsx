@@ -4,6 +4,7 @@ import { supabase } from '../supabase'
 import CourseInput from '../components/CourseInput'
 import { showToast } from '../components/Toast'
 import { fetchActiveChallengeMatchesForRound, formatRoundChallengeToast } from '../utils/crewChallenges'
+import { calculateRoundStats, getProfileAverageScore } from '../utils/golfStats'
 
 const CURRENT_SEASON = new Date().getFullYear()
 
@@ -41,11 +42,9 @@ function LogRoundModal({ userId, friends, onClose, onLogged }) {
 
     if (!error) {
       const { data: allRounds } = await supabase
-        .from('round_logs').select('score').eq('user_id', userId).gte('date', `${CURRENT_SEASON}-01-01`)
-      if (allRounds?.length) {
-        const avg = allRounds.reduce((s, r) => s + r.score, 0) / allRounds.length
-        await supabase.from('profiles').update({ avg_score: Math.round(avg * 10) / 10 }).eq('id', userId)
-      }
+        .from('round_logs').select('score, holes').eq('user_id', userId).gte('date', `${CURRENT_SEASON}-01-01`)
+      const profileAverage = getProfileAverageScore(allRounds || [])
+      await supabase.from('profiles').update({ avg_score: profileAverage }).eq('id', userId)
       const matches = await fetchActiveChallengeMatchesForRound(supabase, userId, savedRound || roundPayload)
       showToast(formatRoundChallengeToast(matches), 'success')
       onLogged()
@@ -217,16 +216,15 @@ export default function Rounds({ user }) {
 
   const stats = (() => {
     if (!rounds.length) return null
+    const roundStats = calculateRoundStats(rounds)
     const scores = rounds.map(r => r.score)
-    const avg = scores.reduce((a, b) => a + b, 0) / scores.length
-    const best = Math.min(...scores)
     let trend = null
     if (rounds.length >= 6) {
       const recent = scores.slice(0, 3).reduce((a, b) => a + b, 0) / 3
       const old = scores.slice(-3).reduce((a, b) => a + b, 0) / 3
       trend = recent - old
     }
-    return { avg: Math.round(avg * 10) / 10, best, rounds: rounds.length, trend }
+    return { ...roundStats, rounds: rounds.length, trend }
   })()
 
   const wagerRounds = rounds.filter(r => r.wager_type)
@@ -270,32 +268,32 @@ export default function Rounds({ user }) {
             {stats && (
               <div className="grid grid-cols-2 gap-3 mb-5">
                 <div className="card p-4 text-center">
-                  <p className="text-2xl font-bold text-[#1D9E75]">{stats.avg}</p>
-                  <p className="text-xs text-gray-500 mt-1">Avg score</p>
+                  <p className="text-2xl font-bold text-[#1D9E75]">{stats.avg9 || '—'}</p>
+                  <p className="text-xs text-gray-500 mt-1">9-hole avg</p>
                 </div>
                 <div className="card p-4 text-center">
-                  <p className="text-2xl font-bold text-[#1D9E75]">{stats.rounds}</p>
-                  <p className="text-xs text-gray-500 mt-1">Rounds played</p>
+                  <p className="text-2xl font-bold text-[#1D9E75]">{stats.avg18 || '—'}</p>
+                  <p className="text-xs text-gray-500 mt-1">18-hole avg</p>
                 </div>
                 <div className="card p-4 text-center">
-                  <p className="text-2xl font-bold text-[#1D9E75]">{stats.best}</p>
-                  <p className="text-xs text-gray-500 mt-1">Best round</p>
+                  <p className="text-2xl font-bold text-[#1D9E75]">{stats.best9 || '—'}</p>
+                  <p className="text-xs text-gray-500 mt-1">Best 9</p>
                 </div>
                 <div className="card p-4 text-center">
-                  {stats.trend != null ? (
-                    <>
-                      <p className={`text-2xl font-bold ${stats.trend < 0 ? 'text-[#1D9E75]' : 'text-red-400'}`}>
-                        {stats.trend < 0 ? '↓' : '↑'} {Math.abs(Math.round(stats.trend * 10) / 10)}
-                      </p>
-                      <p className="text-xs text-gray-500 mt-1">{stats.trend < 0 ? 'Improving' : 'Trending up'}</p>
-                    </>
-                  ) : (
-                    <>
-                      <p className="text-2xl font-bold text-gray-300">–</p>
-                      <p className="text-xs text-gray-500 mt-1">Trend (6+ rounds)</p>
-                    </>
-                  )}
+                  <p className="text-2xl font-bold text-[#1D9E75]">{stats.best18 || '—'}</p>
+                  <p className="text-xs text-gray-500 mt-1">Best 18</p>
                 </div>
+              </div>
+            )}
+            {stats?.trend != null && (
+              <div className="card p-4 mb-5 flex items-center justify-between">
+                <div>
+                  <p className="font-black text-sm text-gray-800">Recent trend</p>
+                  <p className="text-xs text-gray-500 mt-0.5">{stats.trend < 0 ? 'Improving over your last few rounds' : 'Scores are trending up'}</p>
+                </div>
+                <p className={`text-xl font-black ${stats.trend < 0 ? 'text-[#1D9E75]' : 'text-red-400'}`}>
+                  {stats.trend < 0 ? '↓' : '↑'} {Math.abs(Math.round(stats.trend * 10) / 10)}
+                </p>
               </div>
             )}
 
